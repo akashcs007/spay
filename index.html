@@ -74,15 +74,14 @@
         <!-- Authentication Page -->
         <div id="auth-page" class="page active p-6 sm:p-8 flex-grow flex flex-col justify-center">
             <div class="text-center mb-8">
-                <!-- MODIFIED SECTION: Added Spay title next to the icon -->
                 <div class="flex justify-center items-center gap-4 mb-4">
                     <div class="inline-block p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
                        <i data-lucide="wallet" class="h-12 w-12 text-indigo-600 dark:text-indigo-400"></i>
                     </div>
                     <h1 class="text-5xl font-extrabold gradient-text">Spay</h1>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-200">Create your Account</h2>
-                <p class="text-gray-500 dark:text-gray-400 mt-2">Let's get you started.</p>
+                <h2 id="auth-title" class="text-2xl font-bold text-gray-800 dark:text-gray-200">Login to your Account</h2>
+                <p id="auth-subtitle" class="text-gray-500 dark:text-gray-400 mt-2">Welcome back.</p>
             </div>
 
             <div id="auth-forms">
@@ -103,7 +102,7 @@
                     <div class="flex border-b border-gray-300 dark:border-gray-600 mb-4">
                         <button type="button" id="email-tab" class="auth-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Email</button>
                         <button type="button" id="phone-tab" class="auth-tab text-gray-500 flex-1 py-3 font-semibold border-b-2 border-transparent">Phone</button>
-                     </div>
+                   </div>
                     <div class="mb-4">
                         <label id="login-identifier-label" for="login-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
                         <input type="email" id="login-identifier" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="you@example.com">
@@ -140,8 +139,8 @@
         <div id="main-page" class="page">
             <header class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
                 <div>
-                     <p class="text-sm text-gray-500 dark:text-gray-400">Welcome</p>
-                     <p id="user-email-display" class="font-semibold text-gray-700 dark:text-gray-300"></p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Welcome</p>
+                    <p id="user-email-display" class="font-semibold text-gray-700 dark:text-gray-300"></p>
                 </div>
                 <div class="relative">
                     <button id="wallet-button" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
@@ -208,10 +207,74 @@
             </main>
         </div>
         
-        <!-- Other pages (Send, Receive, Payment Gateway) are not shown for brevity -->
-        <div id="send-page" class="page hidden"><!-- ... --></div>
-        <div id="receive-page" class="page hidden"><!-- ... --></div>
-        <div id="payment-gateway-page" class="page hidden"><!-- ... --></div>
+        <!-- Send Page -->
+        <div id="send-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Send Tokens</h1>
+            </header>
+            <main class="p-6 flex-grow">
+                <form id="send-form">
+                    <div class="mb-4">
+                        <label for="send-address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient Address</label>
+                        <input type="text" id="send-address" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="0x...">
+                    </div>
+                    <div class="mb-6">
+                        <label for="send-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
+                        <input type="number" id="send-amount" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" step="0.01" min="0">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
+                </form>
+            </main>
+        </div>
+
+        <!-- Receive Page -->
+        <div id="receive-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Receive Tokens</h1>
+            </header>
+            <main class="p-6 flex-grow flex flex-col justify-center items-center text-center">
+                 <p class="text-gray-500 dark:text-gray-400 mb-4">Your personal wallet address:</p>
+                 <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg w-full text-center mb-4">
+                    <p id="user-address" class="font-mono text-sm break-all"></p>
+                 </div>
+                 <button id="copy-address-btn" class="flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 px-6 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">
+                    <i data-lucide="copy" class="h-5 w-5"></i>
+                    Copy Address
+                 </button>
+            </main>
+        </div>
+        
+        <!-- Payment Gateway Page -->
+        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
+             <header class="flex items-center mb-8">
+                <button id="back-to-wallet-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-2xl font-bold">Secure Payment</h1>
+            </header>
+            <main class="flex-grow">
+                 <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
+                    <p class="text-gray-500 dark:text-gray-400">You are buying</p>
+                    <p class="text-3xl font-bold my-2"><span id="payment-token-amount">0.00</span> TKN</p>
+                    <p class="text-lg font-semibold">For <span id="payment-cash-amount">$0.00</span></p>
+                </div>
+
+                <div class="space-y-4">
+                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">UPI</button>
+                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Credit/Debit Card</button>
+                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Net Banking</button>
+                </div>
+            </main>
+            <footer class="mt-8">
+                 <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Payment</button>
+            </footer>
+        </div>
 
     </div>
     
@@ -243,7 +306,8 @@
 
             let state = {
                 currentUser: null,
-                users: {}
+                users: {},
+                paymentAmount: 0, // To hold amount during payment flow
             };
 
             function saveUsersToLocalStorage() {
@@ -264,10 +328,8 @@
                     };
                 }
             }
-
-            const pages = document.querySelectorAll('.page');
-            const mainPage = document.getElementById('main-page');
-            const walletPage = document.getElementById('wallet-page');
+            
+            // DOM Elements
             const loginForm = document.getElementById('login-form');
             const registerForm = document.getElementById('register-form');
             const showRegisterLink = document.getElementById('show-register');
@@ -289,6 +351,19 @@
             const transactionList = document.getElementById('transaction-list');
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
+            const cashToTokenForm = document.getElementById('cash-to-token-form');
+            const sendButton = document.getElementById('send-button');
+            const receiveButton = document.getElementById('receive-button');
+            const userAddressEl = document.getElementById('user-address');
+            const copyAddressBtn = document.getElementById('copy-address-btn');
+            const sendForm = document.getElementById('send-form');
+            const backToWalletBtn = document.getElementById('back-to-wallet-btn');
+            const paymentTokenAmount = document.getElementById('payment-token-amount');
+            const paymentCashAmount = document.getElementById('payment-cash-amount');
+            const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
+            const authTitle = document.getElementById('auth-title');
+            const authSubtitle = document.getElementById('auth-subtitle');
+
 
             let currentPage = 'auth-page';
             function showPage(pageId) {
@@ -308,6 +383,7 @@
                     mainBalanceEl.textContent = formattedBalance;
                     walletBalanceEl.textContent = formattedBalance;
                     userEmailDisplay.textContent = state.currentUser;
+                    userAddressEl.textContent = user.address;
                     updateTransactionList();
                 } else {
                     showPage('auth-page');
@@ -364,10 +440,8 @@
             // Firebase Auth State Observer
             onAuthStateChanged(auth, user => {
                 if (user) {
-                    // User is signed in
                     const email = user.email;
                     state.currentUser = email;
-                    // Check if user exists in our local storage, if not, create them
                     if (!state.users[email]) {
                         state.users[email] = {
                             balance: 0,
@@ -380,7 +454,6 @@
                     showPage('main-page');
                     updateUI();
                 } else {
-                    // User is signed out
                     state.currentUser = null;
                     showPage('auth-page');
                     updateUI();
@@ -389,8 +462,21 @@
 
             emailTab.addEventListener('click', () => updateAuthMethod('email'));
             phoneTab.addEventListener('click', () => updateAuthMethod('phone'));
-            showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.classList.add('hidden'); registerForm.classList.remove('hidden'); });
-            showLoginLink.addEventListener('click', (e) => { e.preventDefault(); registerForm.classList.add('hidden'); loginForm.classList.remove('hidden'); });
+            
+            showRegisterLink.addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                loginForm.classList.add('hidden'); 
+                registerForm.classList.remove('hidden'); 
+                authTitle.textContent = "Create your Account";
+                authSubtitle.textContent = "Let's get you started.";
+            });
+            showLoginLink.addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                registerForm.classList.add('hidden'); 
+                loginForm.classList.remove('hidden');
+                authTitle.textContent = "Login to your Account";
+                authSubtitle.textContent = "Welcome back.";
+            });
 
             continueWithGoogleBtn.addEventListener('click', () => {
                 const provider = new GoogleAuthProvider();
@@ -408,8 +494,6 @@
                 });
             });
 
-            // Note: Manual sign-in/register with email/phone and password is not connected to Firebase in this example.
-            // A full implementation would use Firebase's `signInWithEmailAndPassword` and `createUserWithEmailAndPassword`.
             loginForm.addEventListener('submit', (e) => {
                  e.preventDefault();
                  const identifier = document.getElementById('login-identifier').value;
@@ -423,16 +507,128 @@
                  }
             });
 
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const identifier = document.getElementById('register-identifier').value;
+                const password = document.getElementById('register-password').value;
+                if(state.users[identifier]) {
+                    showToast('This user already exists.', 'error');
+                } else {
+                    state.users[identifier] = {
+                        password: password,
+                        balance: 0,
+                        address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                        transactions: []
+                    };
+                    saveUsersToLocalStorage();
+                    showToast('Account created successfully! Please log in.', 'success');
+                    registerForm.classList.add('hidden');
+                    loginForm.classList.remove('hidden');
+                }
+            });
 
             walletButton.addEventListener('click', () => showPage('wallet-page'));
             backToMainBtns.forEach(btn => btn.addEventListener('click', () => showPage('main-page')));
             
+            // --- FIX: Add Event Listeners for Send/Receive buttons ---
+            sendButton.addEventListener('click', () => showPage('send-page'));
+            receiveButton.addEventListener('click', () => showPage('receive-page'));
+
+            // --- FIX: Handle Cash to Token form submission ---
+            cashToTokenForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const cashAmountInput = document.getElementById('cash-amount');
+                const cashAmount = parseFloat(cashAmountInput.value);
+
+                if (isNaN(cashAmount) || cashAmount <= 0) {
+                    showToast('Please enter a valid amount.', 'error');
+                    return;
+                }
+                
+                state.paymentAmount = cashAmount; // Assuming 1-to-1 conversion for simplicity
+                paymentTokenAmount.textContent = cashAmount.toFixed(2);
+                paymentCashAmount.textContent = `$${cashAmount.toFixed(2)}`;
+                
+                showPage('payment-gateway-page');
+                cashAmountInput.value = '';
+            });
+
+            confirmPaymentBtn.addEventListener('click', () => {
+                const user = state.users[state.currentUser];
+                if (user && state.paymentAmount > 0) {
+                    user.balance += state.paymentAmount;
+                    user.transactions.push({
+                        type: 'receive',
+                        amount: state.paymentAmount,
+                        from: 'Cash Deposit',
+                        date: new Date().toISOString().split('T')[0]
+                    });
+                    saveUsersToLocalStorage();
+                    showToast(`${state.paymentAmount.toFixed(2)} TKN purchased successfully!`, 'success');
+                    state.paymentAmount = 0;
+                    updateUI();
+                    showPage('main-page');
+                } else {
+                    showToast('Payment processing error.', 'error');
+                }
+            });
+            
+            sendForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const user = state.users[state.currentUser];
+                const sendAddress = document.getElementById('send-address').value;
+                const sendAmount = parseFloat(document.getElementById('send-amount').value);
+                
+                if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
+                    showToast('Please fill all fields correctly.', 'error');
+                    return;
+                }
+
+                if (user.balance < sendAmount) {
+                    showToast('Insufficient balance.', 'error');
+                    return;
+                }
+
+                user.balance -= sendAmount;
+                user.transactions.push({
+                    type: 'send',
+                    amount: sendAmount,
+                    to: sendAddress,
+                    date: new Date().toISOString().split('T')[0]
+                });
+                
+                // For this simulation, we don't credit another user.
+                saveUsersToLocalStorage();
+                showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
+                updateUI();
+                showPage('main-page');
+                sendForm.reset();
+            });
+
+            copyAddressBtn.addEventListener('click', () => {
+                const address = userAddressEl.textContent;
+                // Use a temporary textarea to copy to clipboard
+                const textArea = document.createElement("textarea");
+                textArea.value = address;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('Address copied to clipboard!');
+                } catch (err) {
+                    showToast('Failed to copy address.', 'error');
+                }
+                document.body.removeChild(textArea);
+            });
+            
+            backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
+
             // --- Initial Load ---
             loadUsersFromLocalStorage();
 
             // PWA Service Worker
             if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+                window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('Service worker registration failed:', err)));
             }
         });
     </script>
