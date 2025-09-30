@@ -1,231 +1,1274 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Business Payment Demo</title>
-
-  <!-- Tailwind CDN – remove if you already use it -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Firebase v9 modular SDK (only the services we need) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      doc,
-      setDoc,
-      updateDoc,
-      arrayUnion,
-      Timestamp,
-      runTransaction
-    } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
-
-    /* ---------- Firebase config – replace with your own values ---------- */
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-
-    /* ---------- Init Firebase ------------------------------------------ */
-    const firebaseApp = initializeApp(firebaseConfig);
-    const auth = getAuth(firebaseApp);
-    const db   = getFirestore(firebaseApp);
-
-    /* ---------- Global state ------------------------------------------- */
-    const state = {
-      currentUser: null,
-      pendingCost: 0
-    };
-
-    /* ---------- UI helpers --------------------------------------------- */
-    function showToast(msg, type = "info") {
-      // Simple alert – replace with your own toast system if you have one
-      alert(`${type.toUpperCase()}: ${msg}`);
-    }
-
-    /* ---------- Auth handling ------------------------------------------ */
-    onAuthStateChanged(auth, user => {
-      state.currentUser = user;
-      if (user) {
-        document.getElementById("home-page").classList.remove("hidden");
-        document.getElementById("login-page").classList.add("hidden");
-      } else {
-        document.getElementById("home-page").classList.add("hidden");
-        document.getElementById("login-page").classList.remove("hidden");
-      }
-    });
-
-    /* ---------- Event listeners ---------------------------------------- */
-    // Home → Business Payment
-    document.getElementById("business-payment-btn")?.addEventListener("click", () => {
-      showProductDetails();  // populate & show the product page
-    });
-
-    // Buy button
-    document.getElementById("buy-btn")?.addEventListener("click", () => {
-      renderBuyForm();
-    });
-
-    // Sell button
-    document.getElementById("sell-btn")?.addEventListener("click", async () => {
-      const escrowId = localStorage.getItem("lastEscrow");
-      if (!escrowId) { showToast("No pending purchase to claim.", "error"); return; }
-
-      const escrowRef = doc(db, "escrow", escrowId);
-      try {
-        await runTransaction(db, async transaction => {
-          const escSnap = await transaction.get(escrowRef);
-          if (!escSnap.exists()) throw new Error("Escrow not found");
-          if (escSnap.data().status !== "pending_payment")
-            throw new Error("Already claimed");
-
-          // Claim the escrow
-          transaction.update(escrowRef, {
-            sellerId: state.currentUser.uid,
-            status: "awaiting_buyer"
-          });
-        });
-
-        showToast("Escrow claimed. Awaiting buyer confirmation.", "success");
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    });
-
-    // PIN modal – Cancel
-    document.getElementById("cancel-pin-btn")?.addEventListener("click", () => {
-      document.getElementById("pin-modal").classList.add("hidden");
-    });
-
-    // PIN modal – Confirm
-    document.getElementById("confirm-pin-btn")?.addEventListener("click", async () => {
-      const pin = document.getElementById("pin-input").value;
-      if (pin !== state.currentUser.pin) {   // `pin` must be stored in the user profile
-        document.getElementById("pin-error").textContent = "Wrong PIN";
-        document.getElementById("pin-error").classList.remove("hidden");
-        return;
-      }
-
-      await handlePayment(state.pendingCost);
-    });
-
-    /* ---------- Helper functions --------------------------------------- */
-    function showProductDetails() {
-      // Dummy data – replace with real product info or load from Firestore
-      const prod = { id: "prod_001", title: "Super Widget" };
-
-      document.getElementById("prod-title").textContent = prod.title;
-      localStorage.setItem("currentProdId", prod.id);
-
-      // Show the page, hide others
-      document.getElementById("product-details-page").classList.remove("hidden");
-      document.getElementById("home-page").classList.add("hidden");
-    }
-
-    function renderBuyForm() {
-      const container = document.getElementById("buy-form-container");
-      container.innerHTML = `
-        <form id="buy-form" class="p-4 border rounded-lg mt-6">
-          <label for="cost-input" class="block mb-2 font-medium">Cost (tokens)</label>
-          <input id="cost-input" type="number" min="1" placeholder="Enter amount"
-                 class="w-full p-2 border rounded-md"/>
-          <button type="submit" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg">
-            Proceed to Pay
-          </button>
-        </form>`;
-      document.getElementById("buy-form").addEventListener("submit", e => {
-        e.preventDefault();
-        const cost = parseInt(document.getElementById("cost-input").value, 10);
-        if (!Number.isInteger(cost) || cost <= 0) return;
-        state.pendingCost = cost;
-        document.getElementById("pin-modal").classList.remove("hidden");
-      });
-    }
-
-    async function handlePayment(cost) {
-      const buyerRef = doc(db, "users", state.currentUser.uid);
-      try {
-        await runTransaction(db, async transaction => {
-          const snap = await transaction.get(buyerRef);
-          if (!snap.exists()) throw new Error("User not found");
-
-          const balance = snap.data().balance || 0;
-          if (balance < cost) throw new Error("Insufficient tokens");
-
-          // Debit buyer
-          transaction.update(buyerRef, {
-            balance: balance - cost,
-            transactions: arrayUnion({
-              type: "payment_out",
-              amount: cost,
-              date: Timestamp.now()
-            })
-          });
-
-          // Create escrow (no seller yet)
-          const escrowId = await addDoc(collection(db, "escrow"), {
-            productDetails: document.getElementById("prod-title").textContent,
-            price: cost,
-            buyerId: state.currentUser.uid,
-            status: "pending_payment",
-            createdAt: Timestamp.now()
-          });
-
-          localStorage.setItem("lastEscrow", escrowId.id);
-        });
-
-        showToast("Payment processed. Awaiting seller to claim.", "success");
-        document.getElementById("pin-modal").classList.add("hidden");
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    }
-
-  </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spay - Digital Wallet</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4F46E5">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Page transition styles */
+        .page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out, visibility 0.4s;
+            display: flex;
+            flex-direction: column;
+        }
+        .page.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .toast {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            transform: translateX(120%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 50;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(to right, #4F46E5, #818CF8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .dark .gradient-text {
+             background: linear-gradient(to right, #A5B4FC, #C7D2FE);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .payment-method.selected {
+            border-color: #4F46E5;
+            background-color: #EEF2FF;
+        }
+        .dark .payment-method.selected {
+            border-color: #A5B4FC;
+            background-color: #3730A3;
+        }
+    </style>
 </head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-<body class="bg-gray-100 font-sans">
+    <div id="app" class="max-w-md mx-auto min-h-screen bg-white dark:bg-gray-800 shadow-2xl flex flex-col relative overflow-hidden">
 
-<!-- ===== Login Page (if you already have one) ===== -->
-<div id="login-page" class="hidden">
-  <!-- Your existing login form goes here -->
-</div>
+        <!-- Toast Notification -->
+        <div id="toast" class="toast bg-green-500 text-white font-semibold">
+            <p id="toast-message"></p>
+        </div>
 
-<!-- ===== Home / Main Page ===== -->
-<div id="home-page" class="hidden flex flex-col items-center p-8 space-y-6">
+        <!-- Authentication Page -->
+        <div id="auth-page" class="page active p-6 sm:p-8 flex-grow flex flex-col justify-center">
+            <div class="text-center mb-8">
+                <div class="flex justify-center items-center gap-4 mb-4">
+                    <div class="inline-block p-4 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
+                       <i data-lucide="wallet" class="h-12 w-12 text-indigo-600 dark:text-indigo-400"></i>
+                    </div>
+                    <h1 class="text-5xl font-extrabold gradient-text">Spay</h1>
+                </div>
+                <h2 id="auth-title" class="text-2xl font-bold text-gray-800 dark:text-gray-200">Login to your Account</h2>
+                <p id="auth-subtitle" class="text-gray-500 dark:text-gray-400 mt-2">Welcome back.</p>
+            </div>
 
-  <h1 class="text-3xl font-bold mb-4">Welcome to the Demo App</h1>
+            <div id="auth-forms">
+                <button id="continue-with-google" class="w-full flex items-center justify-center py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition font-medium text-gray-700 dark:text-gray-200">
+                    <svg class="h-5 w-5 mr-3" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C42.022,35.322,44,30.038,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+                    </svg>
+                    Continue with Google
+                </button>
+                <div class="my-6 flex items-center">
+                    <hr class="flex-grow border-gray-300 dark:border-gray-600">
+                    <span class="mx-4 text-sm text-gray-500 dark:text-gray-400">or</span>
+                    <hr class="flex-grow border-gray-300 dark:border-gray-600">
+                </div>
 
-  <!-- Existing content… -->
+                <form id="login-form">
+                    <div class="flex border-b border-gray-300 dark:border-gray-600 mb-4">
+                        <button type="button" class="auth-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Email</button>
+                   </div>
+                    <div class="mb-4">
+                        <label for="login-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                        <input type="email" id="login-identifier" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div class="mb-6">
+                        <label for="login-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                        <input type="password" id="login-password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Login</button>
+                    <p class="text-center text-sm text-gray-500 mt-6">
+                        No account yet? <a href="#" id="show-register" class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Create one now</a>
+                    </p>
+                </form>
 
-  <!-- New button that opens the Business Payment flow -->
-  <button id="business-payment-btn"
-          class="w-full max-w-sm py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">
-    Business Payment
-  </button>
-</div>
+                <form id="register-form" class="hidden">
+                     <div class="mb-4">
+                        <label for="register-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                        <input type="email" id="register-identifier" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div class="mb-4">
+                        <label for="register-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                        <input type="password" id="register-password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Create Account</button>
+                    <p class="text-center text-sm text-gray-500 mt-6">
+                        Already registered? <a href="#" id="show-login" class="font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Log in</a>
+                    </p>
+                </form>
+            </div>
+        </div>
 
-<!-- ===== Product Details Page ===== -->
-<div id="product-details-page" class="hidden flex flex-col items-center p-8 space-y-6">
+        <!-- Main App Page -->
+        <div id="main-page" class="page">
+            <header class="p-4 flex justify-between items-center border-b border-gray-200 dark:border-gray-700">
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Welcome</p>
+                    <p id="user-email-display" class="font-semibold text-gray-700 dark:text-gray-300"></p>
+                </div>
+                <div class="relative">
+                    <button id="wallet-button" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="wallet-2"></i>
+                    </button>
+                </div>
+            </header>
+            <main class="p-6 flex-grow flex flex-col justify-center items-center text-center">
+                <p class="text-gray-500 dark:text-gray-400 font-medium">Total Balance</p>
+                <div class="my-2 text-5xl font-extrabold gradient-text">
+                    <span id="main-balance">0.00</span> TKN
+                </div>
+                <div class="text-xl text-gray-600 dark:text-gray-300 font-semibold">
+                    $<span id="main-cash-balance">0.00</span> USD
+                </div>
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-10">
+                    <button id="send-button" class="flex flex-col items-center justify-center bg-indigo-600 text-white p-4 rounded-2xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="arrow-up-circle" class="h-8 w-8 mb-2"></i>
+                        <span class="font-bold">Send</span>
+                    </button>
+                    <button id="receive-button" class="flex flex-col items-center justify-center bg-green-500 text-white p-4 rounded-2xl shadow-lg hover:bg-green-600 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="arrow-down-circle" class="h-8 w-8 mb-2"></i>
+                        <span class="font-bold">Receive</span>
+                    </button>
+                </div>
+                 <div class="w-full max-w-sm mt-4">
+                     <button id="business-payment-button" class="w-full flex flex-col items-center justify-center bg-slate-700 text-white p-4 rounded-2xl shadow-lg hover:bg-slate-800 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="store" class="h-8 w-8 mb-2"></i>
+                        <span class="font-bold">Business Payment</span>
+                    </button>
+                </div>
+                 <button id="logout-button" class="absolute bottom-6 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">Logout</button>
+            </main>
+        </div>
 
-  <h2 id="prod-title" class="text-2xl font-semibold"></h2>
+        <!-- Wallet Page -->
+        <div id="wallet-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">My Wallet</h1>
+            </header>
+            <main class="p-6 flex-grow overflow-y-auto">
+                <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-8 rounded-2xl mb-8 text-center shadow-xl">
+                    <p class="text-sm opacity-80">Token Balance</p>
+                    <p class="text-5xl font-extrabold mt-2"><span id="wallet-balance">0.00</span> TKN</p>
+                    <hr class="my-4 border-white/20">
+                    <p class="text-sm opacity-80">Cash Balance</p>
+                    <p class="text-3xl font-bold mt-1">$<span id="wallet-cash-balance">0.00</span> USD</p>
+                </div>
+                
+                 <div class="grid grid-cols-1 gap-6 mb-8">
+                    <form id="add-cash-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <h3 class="font-semibold mb-3">Add Cash to Wallet</h3>
+                        <div class="flex items-center">
+                            <input type="number" id="add-cash-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border-gray-300 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500 transition" step="0.01" min="0">
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600 transition">Add</button>
+                        </div>
+                    </form>
+                    <form id="token-to-cash-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <h3 class="font-semibold mb-3">Convert Token to Cash</h3>
+                        <div class="flex items-center">
+                            <input type="number" id="token-amount" placeholder="Tokens" class="w-full px-3 py-2 border-gray-300 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500 transition" step="0.01" min="0">
+                            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-indigo-700 transition">Convert</button>
+                        </div>
+                    </form>
+                    <form id="cash-to-token-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <h3 class="font-semibold mb-3">Convert Cash to Token</h3>
+                        <div class="flex items-center">
+                            <input type="number" id="cash-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border-gray-300 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500 transition" step="0.01" min="0">
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600 transition">Convert</button>
+                        </div>
+                    </form>
+                </div>
 
-  <!-- Action buttons -->
-  <div class="flex gap-4 mt-6">
-    <button id="sell-btn" class="px-6 py-2 rounded-lg bg-green-600 text-white">Sell</button>
-    <button id="buy-btn"  class="px-6 py-2 rounded-lg bg-blue-600 text-white">Buy</button>
-  </div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">Transaction History</h2>
+                    <ul id="transaction-list" class="space-y-3">
+                       <li class="text-center text-gray-500 dark:text-gray-400 py-4">No transactions yet.</li>
+                    </ul>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Send Page -->
+        <div id="send-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Send Tokens</h1>
+            </header>
+            <main class="p-6 flex-grow">
+                <form id="send-form">
+                    <div class="mb-4">
+                        <label for="send-address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient Address</label>
+                        <input type="text" id="send-address" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="0x...">
+                    </div>
+                    <div class="mb-6">
+                        <label for="send-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
+                        <input type="number" id="send-amount" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" step="0.01" min="0">
+                    </div>
+                    <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
+                </form>
+            </main>
+        </div>
 
-  <!-- Container for the Buy form -->
-  <div id="buy-form-container"></div>
-</div>
+        <!-- Receive Page -->
+        <div id="receive-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Receive Tokens</h1>
+            </header>
+            <main class="p-6 flex-grow flex flex-col justify-center items-center text-center">
+                 <p class="text-gray-500 dark:text-gray-400 mb-4">Your personal wallet address:</p>
+                 <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg w-full text-center mb-4">
+                    <p id="user-address" class="font-mono text-sm break-all"></p>
+                 </div>
+                 <button id="copy-address-btn" class="flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 px-6 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">
+                    <i data-lucide="copy" class="h-5 w-5"></i>
+                    Copy Address
+                 </button>
+            </main>
+        </div>
 
-<!-- ===== PIN Confirmation Modal ===== -->
-<div id="pin-modal"
-     class="fixed inset-0 flex items-center justify-center hidden bg-black/50
+        <!-- PAYMENT GATEWAY PAGE -->
+        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
+            <header class="flex items-center mb-8">
+               <button class="back-to-wallet-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                   <i data-lucide="arrow-left"></i>
+               </button>
+               <h1 class="text-2xl font-bold">Secure Payment</h1>
+           </header>
+           <main class="flex-grow">
+                <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
+                   <p class="text-gray-500 dark:text-gray-400">Amount to Add</p>
+                   <p class="text-3xl font-bold my-2 text-green-600 dark:text-green-400" id="payment-cash-amount">$0.00</p>
+                   <p class="text-sm text-red-500">A $5.00 transaction fee will be applied.</p>
+               </div>
+               <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
+               <div id="payment-methods" class="space-y-3">
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 selected" data-method="upi">
+                        <i data-lucide="send" class="h-6 w-6 text-indigo-500"></i> UPI (Unified Payments Interface)
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3" data-method="card">
+                        <i data-lucide="credit-card" class="h-6 w-6 text-indigo-500"></i> Credit/Debit Card
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3" data-method="netbanking">
+                        <i data-lucide="landmark" class="h-6 w-6 text-indigo-500"></i> Net Banking
+                   </button>
+               </div>
+           </main>
+           <footer class="mt-8">
+                <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Deposit</button>
+           </footer>
+       </div>
+
+        <!-- Business Payment Page -->
+        <div id="business-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Business & Escrow</h1>
+            </header>
+            <main class="p-6 flex-grow overflow-y-auto space-y-8">
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">Create a New Sale</h2>
+                    <form id="create-sale-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl space-y-4">
+                        <div>
+                            <label for="product-details" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Details (max 10 words)</label>
+                            <input type="text" id="product-details" required maxlength="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500" placeholder="e.g., Vintage Wrist Watch">
+                        </div>
+                        <div>
+                            <label for="product-price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price (TKN)</label>
+                            <input type="number" id="product-price" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500" placeholder="e.g., 1000" min="1">
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 font-bold rounded-lg hover:bg-indigo-700 transition">Create Sale</button>
+                    </form>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">My Escrow Transactions</h2>
+                    <div id="my-escrow-list" class="space-y-3">
+                        <p class="text-center text-gray-500 dark:text-gray-400">No active sales or purchases.</p>
+                    </div>
+                </div>
+                 <div>
+                    <h2 class="text-lg font-semibold mb-4">Items for Sale</h2>
+                    <div id="active-sales-list" class="space-y-3">
+                        <p class="text-center text-gray-500 dark:text-gray-400">Loading items...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- PIN Page -->
+        <div id="pin-page" class="page p-6 sm:p-8 flex-grow flex flex-col justify-center">
+            <div class="text-center">
+                <h2 id="pin-title" class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Set Your Security PIN</h2>
+                <p id="pin-subtitle" class="text-gray-500 dark:text-gray-400 mb-8">This PIN will be used to authorize payments.</p>
+                <form id="pin-form">
+                    <input type="password" id="pin-input" required maxlength="4" class="w-full max-w-xs mx-auto text-center text-3xl tracking-[1em] px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" placeholder="••••">
+                    <button type="submit" id="pin-submit-button" class="mt-8 w-full max-w-xs bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 transition">Set PIN</button>
+                </form>
+                <button id="change-pin-button" class="hidden mt-4 text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Change PIN</button>
+                 <button class="back-to-business-btn mt-8 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Order Details Page -->
+        <div id="order-details-page" class="page">
+             <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-business-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Order Details</h1>
+            </header>
+            <main id="order-details-content" class="p-6 flex-grow overflow-y-auto space-y-4">
+                <!-- Content will be injected by JS -->
+            </main>
+        </div>
+
+    </div>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            onAuthStateChanged, 
+            signOut,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            onSnapshot, 
+            collection,
+            query,
+            where,
+            getDocs,
+            runTransaction,
+            writeBatch,
+            Timestamp,
+            arrayUnion,
+            serverTimestamp,
+            updateDoc
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        
+        // --- Your web app's Firebase configuration ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCJ5kTNtHVBmAySNxskC-sejx2h07KxyvI",
+            authDomain: "spay-191ff.firebaseapp.com",
+            projectId: "spay-191ff",
+            storageBucket: "spay-191ff.appspot.com",
+            messagingSenderId: "237078619197",
+            appId: "1:237078619197:web:77831f473393c8d9d87654",
+            measurementId: "G-M7PM8E57ZB"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            const TRANSACTION_FEE = 5; // $5 Fee
+
+            let state = {
+                currentUser: null, 
+                userData: null, 
+                unsubscribeUser: null,
+                unsubscribeSales: null,
+                unsubscribeEscrow: null,
+                activeEscrowTxId: null, 
+            };
+            
+            // DOM Elements
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const showRegisterLink = document.getElementById('show-register');
+            const showLoginLink = document.getElementById('show-login');
+            const continueWithGoogleBtn = document.getElementById('continue-with-google');
+            const walletButton = document.getElementById('wallet-button');
+            const backToMainBtns = document.querySelectorAll('.back-to-main-btn');
+            const logoutButton = document.getElementById('logout-button');
+            const userEmailDisplay = document.getElementById('user-email-display');
+            const mainBalanceEl = document.getElementById('main-balance');
+            const mainCashBalanceEl = document.getElementById('main-cash-balance');
+            const walletBalanceEl = document.getElementById('wallet-balance');
+            const walletCashBalanceEl = document.getElementById('wallet-cash-balance');
+            const transactionList = document.getElementById('transaction-list');
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const addCashForm = document.getElementById('add-cash-form');
+            const cashToTokenForm = document.getElementById('cash-to-token-form');
+            const tokenToCashForm = document.getElementById('token-to-cash-form');
+            const sendButton = document.getElementById('send-button');
+            const receiveButton = document.getElementById('receive-button');
+            const userAddressEl = document.getElementById('user-address');
+            const copyAddressBtn = document.getElementById('copy-address-btn');
+            const sendForm = document.getElementById('send-form');
+            const authTitle = document.getElementById('auth-title');
+            const authSubtitle = document.getElementById('auth-subtitle');
+            const paymentCashAmount = document.getElementById('payment-cash-amount');
+            const backToWalletBtn = document.getElementById('back-to-wallet-btn');
+            const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
+            const paymentMethodsContainer = document.getElementById('payment-methods');
+            const businessPaymentButton = document.getElementById('business-payment-button');
+            const createSaleForm = document.getElementById('create-sale-form');
+            const activeSalesList = document.getElementById('active-sales-list');
+            const myEscrowList = document.getElementById('my-escrow-list');
+            const pinForm = document.getElementById('pin-form');
+            const pinTitle = document.getElementById('pin-title');
+            const pinSubtitle = document.getElementById('pin-subtitle');
+            const pinInput = document.getElementById('pin-input');
+            const pinSubmitButton = document.getElementById('pin-submit-button');
+            const changePinButton = document.getElementById('change-pin-button');
+            const backToBusinessBtns = document.querySelectorAll('.back-to-business-btn');
+            const orderDetailsContent = document.getElementById('order-details-content');
+
+
+            let currentPage = 'auth-page';
+            function showPage(pageId) {
+                if (currentPage === pageId) return;
+                const currentPageEl = document.getElementById(currentPage);
+                if(currentPageEl) currentPageEl.classList.remove('active');
+                const nextPageEl = document.getElementById(pageId);
+                if(nextPageEl) {
+                    nextPageEl.classList.add('active');
+                    lucide.createIcons();
+                }
+                currentPage = pageId;
+            }
+
+            function updateUI() {
+                if (state.currentUser && state.userData) {
+                    const user = state.userData;
+                    const formattedBalance = user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const formattedCashBalance = user.cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
+                    mainBalanceEl.textContent = formattedBalance;
+                    mainCashBalanceEl.textContent = formattedCashBalance;
+                    walletBalanceEl.textContent = formattedBalance;
+                    walletCashBalanceEl.textContent = formattedCashBalance;
+
+                    userEmailDisplay.textContent = state.currentUser.email;
+                    userAddressEl.textContent = user.address;
+                } else {
+                    showPage('auth-page');
+                }
+            }
+
+            function updateTransactionList() {
+                if(!state.currentUser || !state.userData) return;
+                
+                const user = state.userData;
+                transactionList.innerHTML = '';
+
+                if (!user.transactions || user.transactions.length === 0) {
+                     transactionList.innerHTML = '<li class="text-center text-gray-500 dark:text-gray-400 py-4">No transactions yet.</li>';
+                     return;
+                }
+                
+                const transactions = [...user.transactions].sort((a, b) => b.date.toMillis() - a.date.toMillis());
+
+                transactions.forEach(tx => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl';
+                    const date = tx.date.toDate().toISOString().split('T')[0];
+                    let iconType, iconColor, title, details, amountString;
+
+                    switch(tx.type) {
+                        case 'conversion':
+                            iconType = 'repeat';
+                            iconColor = 'text-blue-500';
+                            title = tx.title;
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
+                            amountString = tx.amountString;
+                            break;
+                        case 'send':
+                            iconType = 'arrow-up-right';
+                            iconColor = 'text-red-500';
+                            title = 'Sent Tokens';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>`;
+                            amountString = `- ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'receive':
+                             iconType = 'arrow-down-left';
+                            iconColor = 'text-green-500';
+                            title = 'Received Tokens';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'deposit':
+                            iconType = 'plus-circle';
+                            iconColor = 'text-green-500';
+                            title = 'Cash Deposit';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">via ${tx.method}</p>`;
+                            amountString = `+$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            break;
+                        case 'fee':
+                            iconType = 'hand-coins';
+                            iconColor = 'text-gray-500';
+                            title = 'Transaction Fee';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
+                            amountString = `-$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            break;
+                        case 'escrow_payment':
+                             iconType = 'shopping-cart';
+                            iconColor = 'text-red-500';
+                            title = 'Escrow Payment';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">For: ${tx.details}</p>`;
+                            amountString = `- ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'escrow_release':
+                             iconType = 'landmark';
+                            iconColor = 'text-green-500';
+                            title = 'Escrow Release';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.details}</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'escrow_refund':
+                             iconType = 'refresh-cw';
+                            iconColor = 'text-blue-500';
+                            title = 'Escrow Refund';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">For: ${tx.details}</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                    }
+                    
+                    const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
+                    
+                    li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${title}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${amountString}</p><p class="text-xs text-gray-500 dark:text-gray-400">${date}</p></div>`;
+                    transactionList.appendChild(li);
+                });
+                lucide.createIcons();
+            }
+
+            function showToast(message, type = 'success') {
+                toastMessage.textContent = message;
+                toast.className = 'toast show text-white font-semibold';
+                if (type === 'error') toast.classList.add('bg-red-500');
+                else toast.classList.add('bg-green-500');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+
+            function cleanupListeners() {
+                if (state.unsubscribeUser) state.unsubscribeUser();
+                if (state.unsubscribeSales) state.unsubscribeSales();
+                if (state.unsubscribeEscrow) state.unsubscribeEscrow();
+            }
+
+            onAuthStateChanged(auth, async (user) => {
+                cleanupListeners();
+
+                if (user) {
+                    state.currentUser = user;
+                    const userRef = doc(db, 'users', user.uid);
+                    
+                    state.unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            state.userData = docSnap.data();
+                            updateUI();
+                            updateTransactionList();
+                        } else {
+                            const newUser = {
+                                email: user.email,
+                                balance: 1000,
+                                cashBalance: 100,
+                                address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                                pin: null,
+                                transactions: [
+                                    { type: 'deposit', amount: 100, method: 'Welcome Bonus', date: Timestamp.now() },
+                                    { type: 'receive', amount: 1000, from: 'Spay Bonus', date: Timestamp.now() }
+                                ]
+                            };
+                            setDoc(userRef, newUser).then(() => {
+                                showToast(`Welcome! $100 and 1000 TKN have been added.`, 'success');
+                            });
+                        }
+                    });
+
+                    listenToSales();
+                    listenToMyEscrowTransactions();
+                    showPage('main-page');
+                } else {
+                    state.currentUser = null;
+                    state.userData = null;
+                    showPage('auth-page');
+                    updateUI();
+                }
+            });
+            
+            showRegisterLink.addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                loginForm.classList.add('hidden'); 
+                registerForm.classList.remove('hidden'); 
+                authTitle.textContent = "Create your Account";
+                authSubtitle.textContent = "Let's get you started.";
+            });
+            showLoginLink.addEventListener('click', (e) => { 
+                e.preventDefault(); 
+                registerForm.classList.add('hidden'); 
+                loginForm.classList.remove('hidden');
+                authTitle.textContent = "Login to your Account";
+                authSubtitle.textContent = "Welcome back.";
+            });
+
+            continueWithGoogleBtn.addEventListener('click', () => {
+                const provider = new GoogleAuthProvider();
+                signInWithPopup(auth, provider)
+                    .catch((error) => {
+                        console.error("Google Sign-In Error:", error);
+                        showToast(`Error: ${error.code} - ${error.message}`, 'error');
+                    });
+            });
+
+            logoutButton.addEventListener('click', () => {
+                signOut(auth).catch((error) => {
+                    console.error("Sign Out Error:", error);
+                    showToast('Error signing out.', 'error');
+                });
+            });
+
+            loginForm.addEventListener('submit', (e) => {
+                 e.preventDefault();
+                 const email = document.getElementById('login-identifier').value;
+                 const password = document.getElementById('login-password').value;
+                 signInWithEmailAndPassword(auth, email, password)
+                    .catch(error => showToast(error.message, 'error'));
+            });
+
+            registerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = document.getElementById('register-identifier').value;
+                const password = document.getElementById('register-password').value;
+                createUserWithEmailAndPassword(auth, email, password)
+                    .catch(error => showToast(error.message, 'error'));
+            });
+
+            walletButton.addEventListener('click', () => showPage('wallet-page'));
+            backToMainBtns.forEach(btn => btn.addEventListener('click', () => showPage('main-page')));
+            
+            sendButton.addEventListener('click', () => showPage('send-page'));
+            receiveButton.addEventListener('click', () => showPage('receive-page'));
+
+            addCashForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const amountInput = document.getElementById('add-cash-amount');
+                const amount = parseFloat(amountInput.value);
+
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Please enter a valid amount to add.', 'error'); return;
+                }
+                 if (amount <= TRANSACTION_FEE) {
+                    showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error'); return;
+                }
+                
+                paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
+                showPage('payment-gateway-page');
+                amountInput.value = '';
+            });
+            
+            paymentMethodsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('.payment-method');
+                if (!button) return;
+                
+                document.querySelectorAll('.payment-method').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+
+            confirmPaymentBtn.addEventListener('click', async () => {
+                const amountText = paymentCashAmount.textContent.replace('$', '');
+                const amount = parseFloat(amountText);
+
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Invalid payment amount detected.', 'error'); return;
+                }
+
+                const netAmount = amount - TRANSACTION_FEE;
+                const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
+                const userRef = doc(db, 'users', state.currentUser.uid);
+                
+                try {
+                    await updateDoc(userRef, {
+                        cashBalance: state.userData.cashBalance + netAmount,
+                        transactions: arrayUnion(
+                            { type: 'deposit', amount: netAmount, method: selectedMethod, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash deposit`, date: Timestamp.now() }
+                        )
+                    });
+
+                    showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
+                    showPage('wallet-page');
+                } catch (error) {
+                    console.error("Payment transaction failed: ", error);
+                    showToast(`Payment failed: ${error.message}`, 'error');
+                }
+            });
+
+            backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
+
+            cashToTokenForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const cashAmountInput = document.getElementById('cash-amount');
+                const cashAmount = parseFloat(cashAmountInput.value);
+                const userRef = doc(db, 'users', state.currentUser.uid);
+
+                if (isNaN(cashAmount) || cashAmount <= 0) {
+                    showToast('Please enter a valid amount.', 'error'); return;
+                }
+                
+                if (state.userData.cashBalance < (cashAmount + TRANSACTION_FEE)) {
+                    showToast('Insufficient cash for conversion and fee.', 'error'); return;
+                }
+
+                try {
+                    const newCashBalance = state.userData.cashBalance - cashAmount - TRANSACTION_FEE;
+                    const newBalance = state.userData.balance + cashAmount;
+                    
+                    await updateDoc(userRef, { 
+                        cashBalance: newCashBalance, 
+                        balance: newBalance,
+                        transactions: arrayUnion(
+                            { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash to token conversion`, date: Timestamp.now() }
+                        )
+                    });
+
+                    showToast('Conversion successful!', 'success');
+                    cashAmountInput.value = '';
+                } catch (error) {
+                    console.error("Transaction failed: ", error);
+                    showToast(`Conversion failed: ${error.message}`, 'error');
+                }
+            });
+
+             tokenToCashForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const tokenAmountInput = document.getElementById('token-amount');
+                const tokenAmount = parseFloat(tokenAmountInput.value);
+                const userRef = doc(db, 'users', state.currentUser.uid);
+
+                if (isNaN(tokenAmount) || tokenAmount <= 0) {
+                    showToast('Please enter a valid amount.', 'error'); return;
+                }
+                
+                if (state.userData.balance < tokenAmount) {
+                    showToast('Insufficient token balance.', 'error'); return;
+                }
+                if (state.userData.cashBalance < TRANSACTION_FEE) {
+                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
+                }
+
+                try {
+                    const newBalance = state.userData.balance - tokenAmount;
+                    const newCashBalance = state.userData.cashBalance + tokenAmount - TRANSACTION_FEE;
+                    
+                    await updateDoc(userRef, { 
+                        balance: newBalance, 
+                        cashBalance: newCashBalance,
+                        transactions: arrayUnion(
+                            { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For token to cash conversion`, date: Timestamp.now() }
+                        )
+                    });
+                    
+                    showToast('Conversion successful!', 'success');
+                    tokenAmountInput.value = '';
+                } catch (error) {
+                    console.error("Transaction failed: ", error);
+                    showToast(`Conversion failed: ${error.message}`, 'error');
+                }
+            });
+            
+            sendForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const senderRef = doc(db, 'users', state.currentUser.uid);
+                const sendAddress = document.getElementById('send-address').value;
+                const sendAmount = parseFloat(document.getElementById('send-amount').value);
+                
+                if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
+                    showToast('Please fill all fields correctly.', 'error'); return;
+                }
+
+                if (state.userData.balance < sendAmount) {
+                    showToast('Insufficient token balance.', 'error'); return;
+                }
+                 if (state.userData.cashBalance < TRANSACTION_FEE) {
+                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
+                }
+
+                const usersCol = collection(db, 'users');
+                const q = query(usersCol, where("address", "==", sendAddress));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty || querySnapshot.docs[0].id === state.currentUser.uid) {
+                    showToast('Recipient address not found or you cannot send to yourself.', 'error');
+                    return;
+                }
+                
+                const recipientDoc = querySnapshot.docs[0];
+                const recipientRef = recipientDoc.ref;
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const senderDoc = await transaction.get(senderRef);
+                        const recipientDocTx = await transaction.get(recipientRef);
+                        if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+
+                        const newSenderBalance = senderDoc.data().balance - sendAmount;
+                        const newSenderCashBalance = senderDoc.data().cashBalance - TRANSACTION_FEE;
+                        if (newSenderBalance < 0 || newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
+                       
+                        const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
+                        
+                        transaction.update(senderRef, { 
+                            balance: newSenderBalance, 
+                            cashBalance: newSenderCashBalance,
+                            transactions: arrayUnion(
+                                { type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
+                                { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
+                            ) 
+                        });
+                        transaction.update(recipientRef, { 
+                            balance: newRecipientBalance,
+                            transactions: arrayUnion(
+                                { type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
+                            )
+                        });
+                    });
+                    showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
+                    showPage('main-page');
+                    sendForm.reset();
+                } catch (error) {
+                    console.error("Send transaction failed: ", error);
+                    showToast(`Send failed: ${error.message}`, 'error');
+                }
+            });
+
+            copyAddressBtn.addEventListener('click', () => {
+                const address = userAddressEl.textContent;
+                const textArea = document.createElement("textarea");
+                textArea.value = address;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('Address copied to clipboard!');
+                } catch (err) {
+                    showToast('Failed to copy address.', 'error');
+                }
+                document.body.removeChild(textArea);
+            });
+
+            // --- BUSINESS PAYMENT LOGIC ---
+            if (businessPaymentButton) {
+                businessPaymentButton.addEventListener('click', () => showPage('business-page'));
+            }
+            backToBusinessBtns.forEach(btn => btn.addEventListener('click', () => showPage('business-page')));
+            
+            if(createSaleForm) {
+                createSaleForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const details = document.getElementById('product-details').value;
+                    const price = parseFloat(document.getElementById('product-price').value);
+
+                    if (!details || isNaN(price) || price <= 0) {
+                        showToast('Please fill out the sale details correctly.', 'error'); return;
+                    }
+
+                    try {
+                        const escrowCol = collection(db, 'escrow');
+                        await addDoc(escrowCol, {
+                            sellerId: state.currentUser.uid,
+                            sellerEmail: state.currentUser.email,
+                            buyerId: null,
+                            buyerEmail: null,
+                            productDetails: details,
+                            price: price,
+                            status: 'awaiting_buyer',
+                            createdAt: serverTimestamp()
+                        });
+                        showToast('Sale created successfully!', 'success');
+                        createSaleForm.reset();
+                    } catch (error) {
+                         showToast(`Error creating sale: ${error.message}`, 'error');
+                    }
+                });
+            }
+
+            function listenToSales() {
+                const q = query(collection(db, 'escrow'), where('status', '==', 'awaiting_buyer'));
+                state.unsubscribeSales = onSnapshot(q, (snapshot) => {
+                    if (snapshot.empty) {
+                        activeSalesList.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">No items currently for sale.</p>`;
+                        return;
+                    }
+                    activeSalesList.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const sale = doc.data();
+                        const item = document.createElement('div');
+                        item.className = 'p-4 bg-gray-100 dark:bg-gray-700 rounded-lg flex justify-between items-center';
+                        item.innerHTML = `
+                            <div>
+                                <p class="font-semibold">${sale.productDetails}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Seller: ${sale.sellerEmail}</p>
+                            </div>
+                            <button data-id="${doc.id}" data-price="${sale.price}" class="buy-btn bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-green-600 transition">
+                                ${sale.price} TKN
+                            </button>
+                        `;
+                        if (sale.sellerId === state.currentUser.uid) {
+                            item.querySelector('.buy-btn').style.display = 'none';
+                        }
+                        activeSalesList.appendChild(item);
+                    });
+                });
+            }
+
+            if(activeSalesList) {
+                activeSalesList.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('buy-btn')) {
+                        const txId = e.target.dataset.id;
+                        const price = parseFloat(e.target.dataset.price);
+
+                        if (state.userData.balance < price) {
+                            showToast('Insufficient token balance to buy this item.', 'error');
+                            return;
+                        }
+                        
+                        state.activeEscrowTxId = txId; 
+                        
+                        if (state.userData.pin) {
+                            pinTitle.textContent = 'Enter Your Security PIN';
+                            pinSubtitle.textContent = `To authorize the payment of ${price} TKN.`;
+                            pinSubmitButton.textContent = 'Confirm Payment';
+                        } else {
+                            pinTitle.textContent = 'Set Your Security PIN';
+                            pinSubtitle.textContent = 'This 4-digit PIN will be used for all future payments.';
+                            pinSubmitButton.textContent = 'Set PIN and Pay';
+                        }
+                        changePinButton.classList.toggle('hidden', !state.userData.pin);
+                        pinInput.value = '';
+                        showPage('pin-page');
+                    }
+                });
+            }
+
+            if(pinForm){
+                pinForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const pin = pinInput.value;
+                    if (!/^\d{4}$/.test(pin)) {
+                        showToast('PIN must be 4 digits.', 'error'); return;
+                    }
+
+                    if (state.userData.pin) { 
+                        if (state.userData.pin === pin) {
+                            await processPurchase();
+                        } else {
+                            showToast('Incorrect PIN.', 'error');
+                        }
+                    } else { 
+                        const userRef = doc(db, 'users', state.currentUser.uid);
+                        await updateDoc(userRef, { pin: pin });
+                        showToast('PIN set successfully! Proceeding with payment.', 'success');
+                        await processPurchase();
+                    }
+                });
+            }
+
+            async function processPurchase() {
+                if (!state.activeEscrowTxId) return;
+
+                const txId = state.activeEscrowTxId;
+                const buyerRef = doc(db, 'users', state.currentUser.uid);
+                const escrowRef = doc(db, 'escrow', txId);
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const buyerDoc = await transaction.get(buyerRef);
+                        const escrowDoc = await transaction.get(escrowRef);
+
+                        if (!buyerDoc.exists() || !escrowDoc.exists()) throw new Error("Data not found.");
+
+                        const price = escrowDoc.data().price;
+                        if (buyerDoc.data().balance < price) throw new Error("Insufficient token balance.");
+
+                        transaction.update(buyerRef, {
+                            balance: buyerDoc.data().balance - price,
+                            transactions: arrayUnion({
+                                type: 'escrow_payment',
+                                amount: price,
+                                details: escrowDoc.data().productDetails,
+                                date: Timestamp.now()
+                            })
+                        });
+
+                        transaction.update(escrowRef, {
+                            status: 'pending_delivery',
+                            buyerId: state.currentUser.uid,
+                            buyerEmail: state.currentUser.email
+                        });
+                    });
+                    showToast('Payment successful! Tokens are held in escrow.', 'success');
+                    state.activeEscrowTxId = null;
+                    pinInput.value = '';
+                    showPage('business-page');
+
+                } catch (error) {
+                    showToast(`Payment failed: ${error.message}`, 'error');
+                    console.error("Purchase failed:", error);
+                }
+            }
+
+            function listenToMyEscrowTransactions() {
+                if(!state.currentUser) return;
+                const escrowCol = collection(db, 'escrow');
+                const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
+                const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
+
+                const unsubSeller = onSnapshot(qAsSeller, (snapshot) => renderMyEscrowList());
+                const unsubBuyer = onSnapshot(qAsBuyer, (snapshot) => renderMyEscrowList());
+
+                state.unsubscribeEscrow = () => { unsubSeller(); unsubBuyer(); };
+            }
+
+            async function renderMyEscrowList() {
+                 if(!state.currentUser) return;
+                const escrowCol = collection(db, 'escrow');
+                const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
+                const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
+
+                const [sellerSnapshot, buyerSnapshot] = await Promise.all([getDocs(qAsSeller), getDocs(qAsBuyer)]);
+                
+                const allTxs = [];
+                sellerSnapshot.forEach(doc => allTxs.push({id: doc.id, ...doc.data()}));
+                buyerSnapshot.forEach(doc => allTxs.push({id: doc.id, ...doc.data()}));
+
+                const uniqueTxs = Array.from(new Map(allTxs.map(item => [item.id, item])).values())
+                                    .sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+                if(uniqueTxs.length === 0) {
+                     myEscrowList.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">No active sales or purchases.</p>`;
+                     return;
+                }
+
+                myEscrowList.innerHTML = '';
+                uniqueTxs.forEach(tx => {
+                    const item = document.createElement('div');
+                    item.className = 'p-4 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600';
+                    item.dataset.id = tx.id;
+                    item.classList.add('escrow-item-details');
+
+                    const isSeller = tx.sellerId === state.currentUser.uid;
+                    let role = isSeller ? 'Seller' : 'Buyer';
+                    let statusText = '';
+                    let statusColor = 'text-gray-500';
+
+                    switch(tx.status) {
+                        case 'awaiting_buyer': statusText = 'Awaiting Buyer'; statusColor = 'text-blue-500'; break;
+                        case 'pending_delivery': statusText = isSeller ? 'Tokens in Escrow. Ship item.' : 'Payment Sent. Awaiting item.'; statusColor = 'text-yellow-500'; break;
+                        case 'completed': statusText = 'Completed'; statusColor = 'text-green-500'; break;
+                        case 'return_initiated': statusText = isSeller ? 'Return Initiated. Await item.' : 'Return requested. Send item back.'; statusColor = 'text-orange-500'; break;
+                        case 'refunded': statusText = 'Refunded'; statusColor = 'text-purple-500'; break;
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${tx.productDetails}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Role: ${role} | Price: ${tx.price} TKN</p>
+                            </div>
+                            <p class="font-bold text-sm ${statusColor}">${statusText}</p>
+                        </div>
+                    `;
+                    myEscrowList.appendChild(item);
+                });
+            }
+            
+            if(myEscrowList) {
+                myEscrowList.addEventListener('click', async e => {
+                    const item = e.target.closest('.escrow-item-details');
+                    if(!item) return;
+
+                    const txId = item.dataset.id;
+                    const escrowRef = doc(db, 'escrow', txId);
+                    const docSnap = await getDoc(escrowRef);
+                    if(!docSnap.exists()) return;
+
+                    const tx = docSnap.data();
+                    const isSeller = tx.sellerId === state.currentUser.uid;
+
+                    let content = `
+                        <p><strong>Product:</strong> ${tx.productDetails}</p>
+                        <p><strong>Price:</strong> ${tx.price} TKN</p>
+                        <p><strong>Seller:</strong> ${tx.sellerEmail}</p>
+                        <p><strong>Buyer:</strong> ${tx.buyerEmail || 'N/A'}</p>
+                        <p><strong>Status:</strong> <span class="font-semibold">${tx.status.replace('_', ' ')}</span></p>
+                        <hr class="my-4 border-gray-300 dark:border-gray-600">
+                    `;
+
+                    if (!isSeller && tx.status === 'pending_delivery') {
+                        content += `
+                            <h3 class="font-semibold text-lg mb-2">Finalize Payment</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm if you have received the item in good condition.</p>
+                            <div class="flex gap-4">
+                                <button data-id="${txId}" class="w-full finalize-btn bg-green-500 text-white py-2 rounded-lg hover:bg-green-600">Confirm Receipt</button>
+                                <button data-id="${txId}" class="w-full return-btn bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">No (Return Item)</button>
+                            </div>
+                        `;
+                    }
+
+                    if (isSeller && tx.status === 'return_initiated') {
+                         content += `
+                            <h3 class="font-semibold text-lg mb-2">Confirm Return</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm you have received the returned item to refund the buyer.</p>
+                            <button data-id="${txId}" class="w-full confirm-return-btn bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Return Received</button>
+                        `;
+                    }
+                    
+                    orderDetailsContent.innerHTML = content;
+                    showPage('order-details-page');
+                });
+            }
+            
+            if(orderDetailsContent){
+                orderDetailsContent.addEventListener('click', async e => {
+                    const txId = e.target.dataset.id;
+                    if(!txId) return;
+
+                    if (e.target.classList.contains('finalize-btn')) {
+                        await finalizePurchase(txId);
+                    } else if (e.target.classList.contains('return-btn')) {
+                        await initiateReturn(txId);
+                    } else if (e.target.classList.contains('confirm-return-btn')) {
+                        await confirmReturn(txId);
+                    }
+                });
+            }
+
+            async function finalizePurchase(txId) {
+                const escrowRef = doc(db, 'escrow', txId);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const escrowDoc = await transaction.get(escrowRef);
+                        if (!escrowDoc.exists()) throw new Error("Transaction not found.");
+                        
+                        const data = escrowDoc.data();
+                        const sellerRef = doc(db, 'users', data.sellerId);
+                        const sellerDoc = await transaction.get(sellerRef);
+                        if (!sellerDoc.exists()) throw new Error("Seller not found.");
+
+                        transaction.update(sellerRef, {
+                            balance: sellerDoc.data().balance + data.price,
+                            transactions: arrayUnion({ type: 'escrow_release', amount: data.price, details: data.productDetails, date: Timestamp.now() })
+                        });
+                        
+                        transaction.update(escrowRef, { status: 'completed' });
+                    });
+                    showToast('Payment finalized! Seller has been paid.', 'success');
+                    showPage('business-page');
+                } catch (error) {
+                    showToast(`Finalization failed: ${error.message}`, 'error');
+                }
+            }
+
+            async function initiateReturn(txId) {
+                try {
+                    const escrowRef = doc(db, 'escrow', txId);
+                    await updateDoc(escrowRef, { status: 'return_initiated' });
+                    showToast('Return process initiated.', 'success');
+                    showPage('business-page');
+                } catch(error) {
+                    showToast(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async function confirmReturn(txId) {
+                 const escrowRef = doc(db, 'escrow', txId);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const escrowDoc = await transaction.get(escrowRef);
+                        if (!escrowDoc.exists()) throw new Error("Transaction not found.");
+                        
+                        const data = escrowDoc.data();
+                        const buyerRef = doc(db, 'users', data.buyerId);
+                        const buyerDoc = await transaction.get(buyerRef);
+                        if (!buyerDoc.exists()) throw new Error("Buyer not found.");
+
+                        transaction.update(buyerRef, {
+                            balance: buyerDoc.data().balance + data.price,
+                            transactions: arrayUnion({ type: 'escrow_refund', amount: data.price, details: data.productDetails, date: Timestamp.now() })
+                        });
+                        
+                        transaction.update(escrowRef, { status: 'refunded' });
+                    });
+                    showToast('Return confirmed. Buyer has been refunded.', 'success');
+                    showPage('business-page');
+                } catch (error) {
+                    showToast(`Refund failed: ${error.message}`, 'error');
+                }
+            }
+            
+            // PWA Service Worker
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('Service worker registration failed:', err)));
+            }
+        });
+    </script>
+</body>
+</html>
+
