@@ -625,17 +625,17 @@
                         } else {
                             const newUser = {
                                 email: user.email,
-                                balance: 1000,
+                                balance: 500,
                                 cashBalance: 100,
                                 address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
                                 pin: null,
                                 transactions: [
                                     { type: 'deposit', amount: 100, method: 'Welcome Bonus', date: Timestamp.now() },
-                                    { type: 'receive', amount: 1000, from: 'Spay Bonus', date: Timestamp.now() }
+                                    { type: 'receive', amount: 500, from: 'Spay Bonus', date: Timestamp.now() }
                                 ]
                             };
                             setDoc(userRef, newUser).then(() => {
-                                showToast(`Welcome! $100 and 1000 TKN have been added.`, 'success');
+                                showToast(`Welcome! $100 and 500 TKN have been added.`, 'success');
                             });
                         }
                     });
@@ -742,12 +742,21 @@
                 const userRef = doc(db, 'users', state.currentUser.uid);
                 
                 try {
-                    await updateDoc(userRef, {
-                        cashBalance: state.userData.cashBalance + netAmount,
-                        transactions: arrayUnion(
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
+
+                        const newCashBalance = userDoc.data().cashBalance + netAmount;
+                        const newTransactions = [
+                            ...userDoc.data().transactions,
                             { type: 'deposit', amount: netAmount, method: selectedMethod, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For cash deposit`, date: Timestamp.now() }
-                        )
+                        ];
+                        
+                        transaction.update(userRef, { 
+                            cashBalance: newCashBalance,
+                            transactions: newTransactions 
+                        });
                     });
 
                     showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
@@ -770,23 +779,29 @@
                     showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
-                if (state.userData.cashBalance < (cashAmount + TRANSACTION_FEE)) {
-                    showToast('Insufficient cash for conversion and fee.', 'error'); return;
-                }
-
                 try {
-                    const newCashBalance = state.userData.cashBalance - cashAmount - TRANSACTION_FEE;
-                    const newBalance = state.userData.balance + cashAmount;
-                    
-                    await updateDoc(userRef, { 
-                        cashBalance: newCashBalance, 
-                        balance: newBalance,
-                        transactions: arrayUnion(
+                     await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
+
+                        if (userDoc.data().cashBalance < (cashAmount + TRANSACTION_FEE)) {
+                           throw new Error('Insufficient cash for conversion and fee.');
+                        }
+
+                        const newCashBalance = userDoc.data().cashBalance - cashAmount - TRANSACTION_FEE;
+                        const newBalance = userDoc.data().balance + cashAmount;
+                        const newTransactions = [
+                            ...userDoc.data().transactions,
                             { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For cash to token conversion`, date: Timestamp.now() }
-                        )
-                    });
+                        ];
 
+                        transaction.update(userRef, { 
+                            cashBalance: newCashBalance, 
+                            balance: newBalance,
+                            transactions: newTransactions
+                        });
+                    });
                     showToast('Conversion successful!', 'success');
                     cashAmountInput.value = '';
                 } catch (error) {
@@ -805,24 +820,31 @@
                     showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
-                if (state.userData.balance < tokenAmount) {
-                    showToast('Insufficient token balance.', 'error'); return;
-                }
-                if (state.userData.cashBalance < TRANSACTION_FEE) {
-                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
-                }
-
                 try {
-                    const newBalance = state.userData.balance - tokenAmount;
-                    const newCashBalance = state.userData.cashBalance + tokenAmount - TRANSACTION_FEE;
-                    
-                    await updateDoc(userRef, { 
-                        balance: newBalance, 
-                        cashBalance: newCashBalance,
-                        transactions: arrayUnion(
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
+                        
+                        if (userDoc.data().balance < tokenAmount) {
+                            throw new Error('Insufficient token balance.');
+                        }
+                        if (userDoc.data().cashBalance < TRANSACTION_FEE) {
+                            throw new Error('Insufficient cash to pay transaction fee.');
+                        }
+
+                        const newBalance = userDoc.data().balance - tokenAmount;
+                        const newCashBalance = userDoc.data().cashBalance + tokenAmount - TRANSACTION_FEE;
+                        const newTransactions = [
+                             ...userDoc.data().transactions,
                             { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For token to cash conversion`, date: Timestamp.now() }
-                        )
+                        ];
+
+                        transaction.update(userRef, { 
+                            balance: newBalance, 
+                            cashBalance: newCashBalance,
+                            transactions: newTransactions
+                        });
                     });
                     
                     showToast('Conversion successful!', 'success');
@@ -950,6 +972,7 @@
             }
 
             function listenToSales() {
+                if(!activeSalesList) return;
                 const q = query(collection(db, 'escrow'), where('status', '==', 'awaiting_buyer'));
                 state.unsubscribeSales = onSnapshot(q, (snapshot) => {
                     if (snapshot.empty) {
@@ -975,6 +998,9 @@
                         }
                         activeSalesList.appendChild(item);
                     });
+                }, (error) => {
+                    console.error("Error listening to sales:", error);
+                    activeSalesList.innerHTML = `<p class="text-center text-red-500 dark:text-red-400">Could not load items. Check permissions.</p>`;
                 });
             }
 
@@ -1075,19 +1101,19 @@
             }
 
             function listenToMyEscrowTransactions() {
-                if(!state.currentUser) return;
+                if(!state.currentUser || !myEscrowList) return;
                 const escrowCol = collection(db, 'escrow');
                 const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
                 const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
 
-                const unsubSeller = onSnapshot(qAsSeller, (snapshot) => renderMyEscrowList());
-                const unsubBuyer = onSnapshot(qAsBuyer, (snapshot) => renderMyEscrowList());
+                const unsubSeller = onSnapshot(qAsSeller, (snapshot) => renderMyEscrowList(), (error) => console.error("Escrow (seller) listener failed:", error));
+                const unsubBuyer = onSnapshot(qAsBuyer, (snapshot) => renderMyEscrowList(), (error) => console.error("Escrow (buyer) listener failed:", error));
 
                 state.unsubscribeEscrow = () => { unsubSeller(); unsubBuyer(); };
             }
 
             async function renderMyEscrowList() {
-                 if(!state.currentUser) return;
+                 if(!state.currentUser || !myEscrowList) return;
                 const escrowCol = collection(db, 'escrow');
                 const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
                 const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
