@@ -97,14 +97,13 @@
                     <hr class="flex-grow border-gray-300 dark:border-gray-600">
                 </div>
 
-                <!-- Login Form -->
+                <!-- Email/Password Login is now connected to Firebase -->
                 <form id="login-form">
                     <div class="flex border-b border-gray-300 dark:border-gray-600 mb-4">
-                        <button type="button" id="email-tab" class="auth-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Email</button>
-                        <button type="button" id="phone-tab" class="auth-tab text-gray-500 flex-1 py-3 font-semibold border-b-2 border-transparent">Phone</button>
+                        <button type="button" class="auth-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Email</button>
                    </div>
                     <div class="mb-4">
-                        <label id="login-identifier-label" for="login-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                        <label for="login-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
                         <input type="email" id="login-identifier" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="you@example.com">
                     </div>
                     <div class="mb-6">
@@ -120,7 +119,7 @@
                 <!-- Register Form (hidden by default) -->
                 <form id="register-form" class="hidden">
                      <div class="mb-4">
-                        <label id="register-identifier-label" for="register-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                        <label for="register-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
                         <input type="email" id="register-identifier" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="you@example.com">
                     </div>
                     <div class="mb-4">
@@ -262,7 +261,29 @@
     <script type="module">
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { 
+            getAuth, 
+            GoogleAuthProvider, 
+            signInWithPopup, 
+            onAuthStateChanged, 
+            signOut,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            getDoc, 
+            onSnapshot, 
+            collection,
+            query,
+            where,
+            getDocs,
+            runTransaction,
+            addDoc,
+            Timestamp
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
         // --- Your web app's Firebase configuration ---
         const firebaseConfig = {
@@ -278,38 +299,16 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
 
-            const USERS_STORAGE_KEY = 'digital-wallet-users';
-
             let state = {
-                currentUser: null,
-                users: {}
+                currentUser: null, // This will hold the user auth object
+                userData: null, // This will hold user data from Firestore
+                unsubscribe: null // To store the Firestore listener
             };
-
-            function saveUsersToLocalStorage() {
-                localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(state.users));
-            }
-
-            function loadUsersFromLocalStorage() {
-                const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-                if (storedUsers) {
-                    state.users = JSON.parse(storedUsers);
-                } else {
-                    // Add default user if none exist
-                    state.users = {
-                        "test@example.com": {
-                            password: "password123", 
-                            balance: 1350.75, 
-                            cashBalance: 500.00,
-                            address: '0x1a2b3c4d5e6f7g8h9i0j', 
-                            transactions: [{ type: 'receive', amount: 1500, from: 'Initial Deposit', date: '2023-10-26' }]
-                        }
-                    };
-                }
-            }
             
             // DOM Elements
             const loginForm = document.getElementById('login-form');
@@ -317,13 +316,6 @@
             const showRegisterLink = document.getElementById('show-register');
             const showLoginLink = document.getElementById('show-login');
             const continueWithGoogleBtn = document.getElementById('continue-with-google');
-            const emailTab = document.getElementById('email-tab');
-            const phoneTab = document.getElementById('phone-tab');
-            const authTabs = document.querySelectorAll('.auth-tab');
-            const loginIdentifierLabel = document.getElementById('login-identifier-label');
-            const loginIdentifierInput = document.getElementById('login-identifier');
-            const registerIdentifierLabel = document.getElementById('register-identifier-label');
-            const registerIdentifierInput = document.getElementById('register-identifier');
             const walletButton = document.getElementById('wallet-button');
             const backToMainBtns = document.querySelectorAll('.back-to-main-btn');
             const logoutButton = document.getElementById('logout-button');
@@ -357,9 +349,8 @@
             }
 
             function updateUI() {
-                if (state.currentUser) {
-                    const user = state.users[state.currentUser];
-                    if (!user) return; 
+                if (state.currentUser && state.userData) {
+                    const user = state.userData;
                     const formattedBalance = user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     const formattedCashBalance = user.cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                     
@@ -368,28 +359,42 @@
                     walletBalanceEl.textContent = formattedBalance;
                     walletCashBalanceEl.textContent = formattedCashBalance;
 
-                    userEmailDisplay.textContent = state.currentUser;
+                    userEmailDisplay.textContent = state.currentUser.email;
                     userAddressEl.textContent = user.address;
-                    updateTransactionList();
+                    // We will update transactions separately via its own listener for better performance
                 } else {
                     showPage('auth-page');
                 }
             }
 
-            function updateTransactionList() {
+            async function updateTransactionList() {
                 if(!state.currentUser) return;
-                const user = state.users[state.currentUser];
+                
+                const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
+                const q = query(transactionsCol);
+
+                // For real-time updates on transactions, you could use onSnapshot here too.
+                // For simplicity, we'll fetch them once when the UI updates.
+                const querySnapshot = await getDocs(q);
+
                 transactionList.innerHTML = '';
-                if (!user || !user.transactions || user.transactions.length === 0) {
+                if (querySnapshot.empty) {
                      transactionList.innerHTML = '<li class="text-center text-gray-500 dark:text-gray-400 py-4">No transactions yet.</li>';
                      return;
                 }
-                user.transactions.slice().reverse().forEach(tx => {
+
+                let transactions = [];
+                querySnapshot.forEach(doc => transactions.push(doc.data()));
+                // Sort by date, newest first
+                transactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+
+                transactions.forEach(tx => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl';
                     const isSend = tx.type === 'send';
                     const isConversion = tx.type === 'conversion';
-                    let iconType, iconColor, title, details, amountPrefix, amountString;
+                    const date = tx.date.toDate().toISOString().split('T')[0];
+                    let iconType, iconColor, title, details, amountString;
 
                     if (isConversion) {
                         iconType = 'repeat';
@@ -401,14 +406,15 @@
                         iconType = isSend ? 'arrow-up-right' : 'arrow-down-left';
                         iconColor = isSend ? 'text-red-500' : 'text-green-500';
                         title = isSend ? 'Sent Tokens' : 'Received Tokens';
-                        details = isSend ? `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>` : `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
-                        amountPrefix = isSend ? '-' : '+';
+                        const addressToShow = isSend ? tx.to : tx.from;
+                        details = `<p class="text-sm text-gray-500 dark:text-gray-400">${isSend ? 'To' : 'From'}: ${addressToShow.substring(0,10)}...</p>`;
+                        const amountPrefix = isSend ? '-' : '+';
                         amountString = `${amountPrefix} ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
                     }
                     
                     const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
                     
-                    li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${title}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${amountString}</p><p class="text-xs text-gray-500 dark:text-gray-400">${tx.date}</p></div>`;
+                    li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${title}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${amountString}</p><p class="text-xs text-gray-500 dark:text-gray-400">${date}</p></div>`;
                     transactionList.appendChild(li);
                 });
                 lucide.createIcons();
@@ -422,50 +428,46 @@
                 setTimeout(() => toast.classList.remove('show'), 3000);
             }
 
-            function updateAuthMethod(method) {
-                authTabs.forEach(t => {
-                    t.classList.remove('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
-                    t.classList.add('text-gray-500', 'border-transparent');
-                });
-                const tab = method === 'email' ? emailTab : phoneTab;
-                tab.classList.add('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
-                tab.classList.remove('text-gray-500', 'border-transparent');
-                
-                const isEmail = method === 'email';
-                loginIdentifierLabel.textContent = isEmail ? "Email Address" : "Phone Number";
-                loginIdentifierInput.type = isEmail ? "email" : "tel";
-                loginIdentifierInput.placeholder = isEmail ? "you@example.com" : "+1 (555) 123-4567";
-                registerIdentifierLabel.textContent = isEmail ? "Email Address" : "Phone Number";
-                registerIdentifierInput.type = isEmail ? "email" : "tel";
-                registerIdentifierInput.placeholder = isEmail ? "you@example.com" : "+1 (555) 123-4567";
-            }
+            // --- Firestore Auth State Observer ---
+            onAuthStateChanged(auth, async (user) => {
+                // Cleanup previous listener if it exists
+                if (state.unsubscribe) {
+                    state.unsubscribe();
+                    state.unsubscribe = null;
+                }
 
-            // Firebase Auth State Observer
-            onAuthStateChanged(auth, user => {
                 if (user) {
-                    const email = user.email;
-                    state.currentUser = email;
-                    if (!state.users[email]) {
-                        state.users[email] = {
-                            balance: 0,
-                            cashBalance: 0,
-                            address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-                            transactions: []
-                        };
-                        saveUsersToLocalStorage();
-                        showToast(`Welcome, ${user.displayName || 'user'}!`);
-                    }
+                    state.currentUser = user;
+                    const userRef = doc(db, 'users', user.uid);
+                    
+                    // Set up a real-time listener for the user's data
+                    state.unsubscribe = onSnapshot(userRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            state.userData = docSnap.data();
+                            updateUI();
+                            updateTransactionList();
+                        } else {
+                            // First time login for this user, create their document
+                            const newUser = {
+                                email: user.email,
+                                balance: 0,
+                                cashBalance: 0,
+                                address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                            };
+                            setDoc(userRef, newUser).then(() => {
+                                showToast(`Welcome, ${user.displayName || user.email}!`);
+                            });
+                        }
+                    });
+
                     showPage('main-page');
-                    updateUI();
                 } else {
                     state.currentUser = null;
+                    state.userData = null;
                     showPage('auth-page');
                     updateUI();
                 }
             });
-
-            emailTab.addEventListener('click', () => updateAuthMethod('email'));
-            phoneTab.addEventListener('click', () => updateAuthMethod('phone'));
             
             showRegisterLink.addEventListener('click', (e) => { 
                 e.preventDefault(); 
@@ -487,7 +489,7 @@
                 signInWithPopup(auth, provider)
                     .catch((error) => {
                         console.error("Google Sign-In Error:", error);
-                        showToast(`Error: ${error.message}`, 'error');
+                        showToast(`Error: ${error.code} - ${error.message}`, 'error');
                     });
             });
 
@@ -500,36 +502,21 @@
 
             loginForm.addEventListener('submit', (e) => {
                  e.preventDefault();
-                 const identifier = document.getElementById('login-identifier').value;
+                 const email = document.getElementById('login-identifier').value;
                  const password = document.getElementById('login-password').value;
-                 if (state.users[identifier] && state.users[identifier].password === password) {
-                     state.currentUser = identifier;
-                     showPage('main-page');
-                     updateUI();
-                 } else {
-                     showToast('Invalid credentials for local user.', 'error');
-                 }
+                 signInWithEmailAndPassword(auth, email, password)
+                    .catch(error => showToast(error.message, 'error'));
             });
 
             registerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const identifier = document.getElementById('register-identifier').value;
+                const email = document.getElementById('register-identifier').value;
                 const password = document.getElementById('register-password').value;
-                if(state.users[identifier]) {
-                    showToast('This user already exists.', 'error');
-                } else {
-                    state.users[identifier] = {
-                        password: password,
-                        balance: 0,
-                        cashBalance: 0,
-                        address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-                        transactions: []
-                    };
-                    saveUsersToLocalStorage();
-                    showToast('Account created successfully! Please log in.', 'success');
-                    registerForm.classList.add('hidden');
-                    loginForm.classList.remove('hidden');
-                }
+                createUserWithEmailAndPassword(auth, email, password)
+                    .then(() => {
+                         showToast('Account created successfully! Welcome.', 'success');
+                    })
+                    .catch(error => showToast(error.message, 'error'));
             });
 
             walletButton.addEventListener('click', () => showPage('wallet-page'));
@@ -538,117 +525,146 @@
             sendButton.addEventListener('click', () => showPage('send-page'));
             receiveButton.addEventListener('click', () => showPage('receive-page'));
 
-            cashToTokenForm.addEventListener('submit', (e) => {
+            cashToTokenForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const cashAmountInput = document.getElementById('cash-amount');
                 const cashAmount = parseFloat(cashAmountInput.value);
-                const user = state.users[state.currentUser];
+                const userRef = doc(db, 'users', state.currentUser.uid);
 
                 if (isNaN(cashAmount) || cashAmount <= 0) {
-                    showToast('Please enter a valid amount.', 'error');
-                    return;
+                    showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
-                if (user.cashBalance < cashAmount) {
-                    showToast('Insufficient cash balance.', 'error');
-                    return;
+                if (state.userData.cashBalance < cashAmount) {
+                    showToast('Insufficient cash balance.', 'error'); return;
                 }
 
-                user.cashBalance -= cashAmount;
-                user.balance += cashAmount; // Assuming 1:1 conversion
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
 
-                user.transactions.push({
-                    type: 'conversion',
-                    title: 'Cash to Token',
-                    details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
-                    amountString: `+${cashAmount.toFixed(2)} TKN`,
-                    date: new Date().toISOString().split('T')[0]
-                });
-
-                saveUsersToLocalStorage();
-                updateUI();
-                showToast('Conversion successful!', 'success');
-                cashAmountInput.value = '';
+                        const newCashBalance = userDoc.data().cashBalance - cashAmount;
+                        const newBalance = userDoc.data().balance + cashAmount;
+                        transaction.update(userRef, { cashBalance: newCashBalance, balance: newBalance });
+                        
+                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
+                        await addDoc(transactionsCol, {
+                            type: 'conversion',
+                            title: 'Cash to Token',
+                            details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
+                            amountString: `+${cashAmount.toFixed(2)} TKN`,
+                            date: Timestamp.now()
+                        });
+                    });
+                    showToast('Conversion successful!', 'success');
+                    cashAmountInput.value = '';
+                } catch (error) {
+                    console.error("Transaction failed: ", error);
+                    showToast('Conversion failed. Please try again.', 'error');
+                }
             });
 
-             tokenToCashForm.addEventListener('submit', (e) => {
+             tokenToCashForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const tokenAmountInput = document.getElementById('token-amount');
                 const tokenAmount = parseFloat(tokenAmountInput.value);
-                const user = state.users[state.currentUser];
+                const userRef = doc(db, 'users', state.currentUser.uid);
 
                 if (isNaN(tokenAmount) || tokenAmount <= 0) {
-                    showToast('Please enter a valid amount.', 'error');
-                    return;
+                    showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
-                if (user.balance < tokenAmount) {
-                    showToast('Insufficient token balance.', 'error');
-                    return;
+                if (state.userData.balance < tokenAmount) {
+                    showToast('Insufficient token balance.', 'error'); return;
                 }
 
-                user.balance -= tokenAmount;
-                user.cashBalance += tokenAmount; // Assuming 1:1 conversion
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
 
-                user.transactions.push({
-                    type: 'conversion',
-                    title: 'Token to Cash',
-                    details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
-                    amountString: `+$${tokenAmount.toFixed(2)}`,
-                    date: new Date().toISOString().split('T')[0]
-                });
-
-                saveUsersToLocalStorage();
-                updateUI();
-                showToast('Conversion successful!', 'success');
-                tokenAmountInput.value = '';
+                        const newBalance = userDoc.data().balance - tokenAmount;
+                        const newCashBalance = userDoc.data().cashBalance + tokenAmount;
+                        transaction.update(userRef, { balance: newBalance, cashBalance: newCashBalance });
+                        
+                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
+                        await addDoc(transactionsCol, {
+                            type: 'conversion',
+                            title: 'Token to Cash',
+                            details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
+                            amountString: `+$${tokenAmount.toFixed(2)}`,
+                            date: Timestamp.now()
+                        });
+                    });
+                    showToast('Conversion successful!', 'success');
+                    tokenAmountInput.value = '';
+                } catch (error) {
+                    console.error("Transaction failed: ", error);
+                    showToast('Conversion failed. Please try again.', 'error');
+                }
             });
             
-            sendForm.addEventListener('submit', (e) => {
+            sendForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const sender = state.users[state.currentUser];
+                const senderRef = doc(db, 'users', state.currentUser.uid);
                 const sendAddress = document.getElementById('send-address').value;
                 const sendAmount = parseFloat(document.getElementById('send-amount').value);
                 
                 if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
-                    showToast('Please fill all fields correctly.', 'error');
-                    return;
+                    showToast('Please fill all fields correctly.', 'error'); return;
                 }
 
-                if (sender.balance < sendAmount) {
-                    showToast('Insufficient balance.', 'error');
-                    return;
+                if (state.userData.balance < sendAmount) {
+                    showToast('Insufficient balance.', 'error'); return;
                 }
 
-                const recipientEmail = Object.keys(state.users).find(email => state.users[email].address === sendAddress);
-                const recipient = recipientEmail ? state.users[recipientEmail] : null;
+                // Find recipient in Firestore
+                const usersCol = collection(db, 'users');
+                const q = query(usersCol, where("address", "==", sendAddress));
+                const querySnapshot = await getDocs(q);
 
-                if (!recipient || recipientEmail === state.currentUser) {
+                if (querySnapshot.empty || querySnapshot.docs[0].id === state.currentUser.uid) {
                     showToast('Recipient address not found or you cannot send to yourself.', 'error');
                     return;
                 }
-
-                sender.balance -= sendAmount;
-                sender.transactions.push({
-                    type: 'send',
-                    amount: sendAmount,
-                    to: sendAddress,
-                    date: new Date().toISOString().split('T')[0]
-                });
                 
-                recipient.balance += sendAmount;
-                recipient.transactions.push({
-                    type: 'receive',
-                    amount: sendAmount,
-                    from: sender.address,
-                    date: new Date().toISOString().split('T')[0]
-                });
+                const recipientDoc = querySnapshot.docs[0];
+                const recipientRef = recipientDoc.ref;
 
-                saveUsersToLocalStorage();
-                showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
-                updateUI();
-                showPage('main-page');
-                sendForm.reset();
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const senderDoc = await transaction.get(senderRef);
+                        const recipientDocTx = await transaction.get(recipientRef);
+                        if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+
+                        // Deduct from sender
+                        const newSenderBalance = senderDoc.data().balance - sendAmount;
+                        if (newSenderBalance < 0) throw "Insufficient balance.";
+                        transaction.update(senderRef, { balance: newSenderBalance });
+
+                        // Add to recipient
+                        const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
+                        transaction.update(recipientRef, { balance: newRecipientBalance });
+
+                        // Add transaction records
+                        const senderTxCol = collection(db, 'users', senderDoc.id, 'transactions');
+                        const recipientTxCol = collection(db, 'users', recipientDoc.id, 'transactions');
+                        
+                        await addDoc(senderTxCol, {
+                            type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now()
+                        });
+                        await addDoc(recipientTxCol, {
+                            type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now()
+                        });
+                    });
+                    showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
+                    showPage('main-page');
+                    sendForm.reset();
+                } catch (error) {
+                    console.error("Send transaction failed: ", error);
+                    showToast('Send failed. Please try again.', 'error');
+                }
             });
 
             copyAddressBtn.addEventListener('click', () => {
@@ -666,9 +682,6 @@
                 document.body.removeChild(textArea);
             });
             
-            // --- Initial Load ---
-            loadUsersFromLocalStorage();
-
             // PWA Service Worker
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(err => console.error('Service worker registration failed:', err)));
