@@ -431,7 +431,7 @@
                 unsubscribeUser: null,
                 unsubscribeSales: null,
                 unsubscribeEscrow: null,
-                activeEscrowTxId: null, // To manage PIN flow
+                activeEscrowTxId: null, 
             };
             
             // DOM Elements
@@ -485,7 +485,10 @@
                 const currentPageEl = document.getElementById(currentPage);
                 if(currentPageEl) currentPageEl.classList.remove('active');
                 const nextPageEl = document.getElementById(pageId);
-                if(nextPageEl) nextPageEl.classList.add('active');
+                if(nextPageEl) {
+                    nextPageEl.classList.add('active');
+                    lucide.createIcons();
+                }
                 currentPage = pageId;
             }
 
@@ -911,36 +914,40 @@
             });
 
             // --- BUSINESS PAYMENT LOGIC ---
-            businessPaymentButton.addEventListener('click', () => showPage('business-page'));
+            if (businessPaymentButton) {
+                businessPaymentButton.addEventListener('click', () => showPage('business-page'));
+            }
             backToBusinessBtns.forEach(btn => btn.addEventListener('click', () => showPage('business-page')));
             
-            createSaleForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const details = document.getElementById('product-details').value;
-                const price = parseFloat(document.getElementById('product-price').value);
+            if(createSaleForm) {
+                createSaleForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const details = document.getElementById('product-details').value;
+                    const price = parseFloat(document.getElementById('product-price').value);
 
-                if (!details || isNaN(price) || price <= 0) {
-                    showToast('Please fill out the sale details correctly.', 'error'); return;
-                }
+                    if (!details || isNaN(price) || price <= 0) {
+                        showToast('Please fill out the sale details correctly.', 'error'); return;
+                    }
 
-                try {
-                    const escrowCol = collection(db, 'escrow');
-                    await addDoc(escrowCol, {
-                        sellerId: state.currentUser.uid,
-                        sellerEmail: state.currentUser.email,
-                        buyerId: null,
-                        buyerEmail: null,
-                        productDetails: details,
-                        price: price,
-                        status: 'awaiting_buyer',
-                        createdAt: serverTimestamp()
-                    });
-                    showToast('Sale created successfully!', 'success');
-                    createSaleForm.reset();
-                } catch (error) {
-                     showToast(`Error creating sale: ${error.message}`, 'error');
-                }
-            });
+                    try {
+                        const escrowCol = collection(db, 'escrow');
+                        await addDoc(escrowCol, {
+                            sellerId: state.currentUser.uid,
+                            sellerEmail: state.currentUser.email,
+                            buyerId: null,
+                            buyerEmail: null,
+                            productDetails: details,
+                            price: price,
+                            status: 'awaiting_buyer',
+                            createdAt: serverTimestamp()
+                        });
+                        showToast('Sale created successfully!', 'success');
+                        createSaleForm.reset();
+                    } catch (error) {
+                         showToast(`Error creating sale: ${error.message}`, 'error');
+                    }
+                });
+            }
 
             function listenToSales() {
                 const q = query(collection(db, 'escrow'), where('status', '==', 'awaiting_buyer'));
@@ -963,7 +970,6 @@
                                 ${sale.price} TKN
                             </button>
                         `;
-                        // Don't show buy button for own items
                         if (sale.sellerId === state.currentUser.uid) {
                             item.querySelector('.buy-btn').style.display = 'none';
                         }
@@ -972,54 +978,57 @@
                 });
             }
 
-            activeSalesList.addEventListener('click', async (e) => {
-                if (e.target.classList.contains('buy-btn')) {
-                    const txId = e.target.dataset.id;
-                    const price = parseFloat(e.target.dataset.price);
+            if(activeSalesList) {
+                activeSalesList.addEventListener('click', async (e) => {
+                    if (e.target.classList.contains('buy-btn')) {
+                        const txId = e.target.dataset.id;
+                        const price = parseFloat(e.target.dataset.price);
 
-                    if (state.userData.balance < price) {
-                        showToast('Insufficient token balance to buy this item.', 'error');
-                        return;
+                        if (state.userData.balance < price) {
+                            showToast('Insufficient token balance to buy this item.', 'error');
+                            return;
+                        }
+                        
+                        state.activeEscrowTxId = txId; 
+                        
+                        if (state.userData.pin) {
+                            pinTitle.textContent = 'Enter Your Security PIN';
+                            pinSubtitle.textContent = `To authorize the payment of ${price} TKN.`;
+                            pinSubmitButton.textContent = 'Confirm Payment';
+                        } else {
+                            pinTitle.textContent = 'Set Your Security PIN';
+                            pinSubtitle.textContent = 'This 4-digit PIN will be used for all future payments.';
+                            pinSubmitButton.textContent = 'Set PIN and Pay';
+                        }
+                        changePinButton.classList.toggle('hidden', !state.userData.pin);
+                        pinInput.value = '';
+                        showPage('pin-page');
                     }
-                    
-                    state.activeEscrowTxId = txId; // Store the transaction ID for the PIN flow
-                    
-                    // PIN Check
-                    if (state.userData.pin) {
-                        pinTitle.textContent = 'Enter Your Security PIN';
-                        pinSubtitle.textContent = `To authorize the payment of ${price} TKN.`;
-                        pinSubmitButton.textContent = 'Confirm Payment';
-                    } else {
-                        pinTitle.textContent = 'Set Your Security PIN';
-                        pinSubtitle.textContent = 'This 4-digit PIN will be used for all future payments.';
-                        pinSubmitButton.textContent = 'Set PIN and Pay';
+                });
+            }
+
+            if(pinForm){
+                pinForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const pin = pinInput.value;
+                    if (!/^\d{4}$/.test(pin)) {
+                        showToast('PIN must be 4 digits.', 'error'); return;
                     }
-                    changePinButton.classList.toggle('hidden', !state.userData.pin);
-                    pinInput.value = '';
-                    showPage('pin-page');
-                }
-            });
 
-            pinForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const pin = pinInput.value;
-                if (!/^\d{4}$/.test(pin)) {
-                    showToast('PIN must be 4 digits.', 'error'); return;
-                }
-
-                if (state.userData.pin) { // User is confirming an existing PIN
-                    if (state.userData.pin === pin) {
+                    if (state.userData.pin) { 
+                        if (state.userData.pin === pin) {
+                            await processPurchase();
+                        } else {
+                            showToast('Incorrect PIN.', 'error');
+                        }
+                    } else { 
+                        const userRef = doc(db, 'users', state.currentUser.uid);
+                        await updateDoc(userRef, { pin: pin });
+                        showToast('PIN set successfully! Proceeding with payment.', 'success');
                         await processPurchase();
-                    } else {
-                        showToast('Incorrect PIN.', 'error');
                     }
-                } else { // User is setting a new PIN
-                    const userRef = doc(db, 'users', state.currentUser.uid);
-                    await updateDoc(userRef, { pin: pin });
-                    showToast('PIN set successfully! Proceeding with payment.', 'success');
-                    await processPurchase();
-                }
-            });
+                });
+            }
 
             async function processPurchase() {
                 if (!state.activeEscrowTxId) return;
@@ -1038,7 +1047,6 @@
                         const price = escrowDoc.data().price;
                         if (buyerDoc.data().balance < price) throw new Error("Insufficient token balance.");
 
-                        // Update buyer
                         transaction.update(buyerRef, {
                             balance: buyerDoc.data().balance - price,
                             transactions: arrayUnion({
@@ -1049,7 +1057,6 @@
                             })
                         });
 
-                        // Update escrow document
                         transaction.update(escrowRef, {
                             status: 'pending_delivery',
                             buyerId: state.currentUser.uid,
@@ -1068,6 +1075,7 @@
             }
 
             function listenToMyEscrowTransactions() {
+                if(!state.currentUser) return;
                 const escrowCol = collection(db, 'escrow');
                 const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
                 const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
@@ -1131,64 +1139,66 @@
                 });
             }
             
-            myEscrowList.addEventListener('click', async e => {
-                const item = e.target.closest('.escrow-item-details');
-                if(!item) return;
+            if(myEscrowList) {
+                myEscrowList.addEventListener('click', async e => {
+                    const item = e.target.closest('.escrow-item-details');
+                    if(!item) return;
 
-                const txId = item.dataset.id;
-                const escrowRef = doc(db, 'escrow', txId);
-                const docSnap = await getDoc(escrowRef);
-                if(!docSnap.exists()) return;
+                    const txId = item.dataset.id;
+                    const escrowRef = doc(db, 'escrow', txId);
+                    const docSnap = await getDoc(escrowRef);
+                    if(!docSnap.exists()) return;
 
-                const tx = docSnap.data();
-                const isSeller = tx.sellerId === state.currentUser.uid;
+                    const tx = docSnap.data();
+                    const isSeller = tx.sellerId === state.currentUser.uid;
 
-                let content = `
-                    <p><strong>Product:</strong> ${tx.productDetails}</p>
-                    <p><strong>Price:</strong> ${tx.price} TKN</p>
-                    <p><strong>Seller:</strong> ${tx.sellerEmail}</p>
-                    <p><strong>Buyer:</strong> ${tx.buyerEmail || 'N/A'}</p>
-                    <p><strong>Status:</strong> <span class="font-semibold">${tx.status.replace('_', ' ')}</span></p>
-                    <hr class="my-4 border-gray-300 dark:border-gray-600">
-                `;
-
-                // Buyer actions
-                if (!isSeller && tx.status === 'pending_delivery') {
-                    content += `
-                        <h3 class="font-semibold text-lg mb-2">Finalize Payment</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm if you have received the item in good condition.</p>
-                        <div class="flex gap-4">
-                            <button data-id="${txId}" class="w-full finalize-btn bg-green-500 text-white py-2 rounded-lg hover:bg-green-600">Confirm Receipt</button>
-                            <button data-id="${txId}" class="w-full return-btn bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">No (Return Item)</button>
-                        </div>
+                    let content = `
+                        <p><strong>Product:</strong> ${tx.productDetails}</p>
+                        <p><strong>Price:</strong> ${tx.price} TKN</p>
+                        <p><strong>Seller:</strong> ${tx.sellerEmail}</p>
+                        <p><strong>Buyer:</strong> ${tx.buyerEmail || 'N/A'}</p>
+                        <p><strong>Status:</strong> <span class="font-semibold">${tx.status.replace('_', ' ')}</span></p>
+                        <hr class="my-4 border-gray-300 dark:border-gray-600">
                     `;
-                }
 
-                // Seller actions
-                if (isSeller && tx.status === 'return_initiated') {
-                     content += `
-                        <h3 class="font-semibold text-lg mb-2">Confirm Return</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm you have received the returned item to refund the buyer.</p>
-                        <button data-id="${txId}" class="w-full confirm-return-btn bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Return Received</button>
-                    `;
-                }
-                
-                orderDetailsContent.innerHTML = content;
-                showPage('order-details-page');
-            });
+                    if (!isSeller && tx.status === 'pending_delivery') {
+                        content += `
+                            <h3 class="font-semibold text-lg mb-2">Finalize Payment</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm if you have received the item in good condition.</p>
+                            <div class="flex gap-4">
+                                <button data-id="${txId}" class="w-full finalize-btn bg-green-500 text-white py-2 rounded-lg hover:bg-green-600">Confirm Receipt</button>
+                                <button data-id="${txId}" class="w-full return-btn bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">No (Return Item)</button>
+                            </div>
+                        `;
+                    }
+
+                    if (isSeller && tx.status === 'return_initiated') {
+                         content += `
+                            <h3 class="font-semibold text-lg mb-2">Confirm Return</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm you have received the returned item to refund the buyer.</p>
+                            <button data-id="${txId}" class="w-full confirm-return-btn bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Return Received</button>
+                        `;
+                    }
+                    
+                    orderDetailsContent.innerHTML = content;
+                    showPage('order-details-page');
+                });
+            }
             
-            orderDetailsContent.addEventListener('click', async e => {
-                const txId = e.target.dataset.id;
-                if(!txId) return;
+            if(orderDetailsContent){
+                orderDetailsContent.addEventListener('click', async e => {
+                    const txId = e.target.dataset.id;
+                    if(!txId) return;
 
-                if (e.target.classList.contains('finalize-btn')) {
-                    await finalizePurchase(txId);
-                } else if (e.target.classList.contains('return-btn')) {
-                    await initiateReturn(txId);
-                } else if (e.target.classList.contains('confirm-return-btn')) {
-                    await confirmReturn(txId);
-                }
-            });
+                    if (e.target.classList.contains('finalize-btn')) {
+                        await finalizePurchase(txId);
+                    } else if (e.target.classList.contains('return-btn')) {
+                        await initiateReturn(txId);
+                    } else if (e.target.classList.contains('confirm-return-btn')) {
+                        await confirmReturn(txId);
+                    }
+                });
+            }
 
             async function finalizePurchase(txId) {
                 const escrowRef = doc(db, 'escrow', txId);
@@ -1202,13 +1212,11 @@
                         const sellerDoc = await transaction.get(sellerRef);
                         if (!sellerDoc.exists()) throw new Error("Seller not found.");
 
-                        // Release funds to seller
                         transaction.update(sellerRef, {
                             balance: sellerDoc.data().balance + data.price,
                             transactions: arrayUnion({ type: 'escrow_release', amount: data.price, details: data.productDetails, date: Timestamp.now() })
                         });
                         
-                        // Mark escrow as complete
                         transaction.update(escrowRef, { status: 'completed' });
                     });
                     showToast('Payment finalized! Seller has been paid.', 'success');
@@ -1241,13 +1249,11 @@
                         const buyerDoc = await transaction.get(buyerRef);
                         if (!buyerDoc.exists()) throw new Error("Buyer not found.");
 
-                        // Refund buyer
                         transaction.update(buyerRef, {
                             balance: buyerDoc.data().balance + data.price,
                             transactions: arrayUnion({ type: 'escrow_refund', amount: data.price, details: data.productDetails, date: Timestamp.now() })
                         });
                         
-                        // Mark escrow as refunded
                         transaction.update(escrowRef, { status: 'refunded' });
                     });
                     showToast('Return confirmed. Buyer has been refunded.', 'success');
