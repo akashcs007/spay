@@ -60,6 +60,14 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .payment-method.selected {
+            border-color: #4F46E5;
+            background-color: #EEF2FF;
+        }
+        .dark .payment-method.selected {
+            border-color: #A5B4FC;
+            background-color: #3730A3;
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -187,6 +195,14 @@
                 </div>
                 
                  <div class="grid grid-cols-1 gap-6 mb-8">
+                    <!-- ADD CASH FORM -->
+                    <form id="add-cash-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                        <h3 class="font-semibold mb-3">Add Cash to Wallet</h3>
+                        <div class="flex items-center">
+                            <input type="number" id="add-cash-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border-gray-300 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500 transition" step="0.01" min="0">
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600 transition">Add</button>
+                        </div>
+                    </form>
                     <form id="token-to-cash-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
                         <h3 class="font-semibold mb-3">Convert Token to Cash</h3>
                         <div class="flex items-center">
@@ -254,6 +270,37 @@
                  </button>
             </main>
         </div>
+
+        <!-- PAYMENT GATEWAY PAGE -->
+        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
+            <header class="flex items-center mb-8">
+               <button id="back-to-wallet-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                   <i data-lucide="arrow-left"></i>
+               </button>
+               <h1 class="text-2xl font-bold">Secure Payment</h1>
+           </header>
+           <main class="flex-grow">
+                <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
+                   <p class="text-gray-500 dark:text-gray-400">You are adding</p>
+                   <p class="text-3xl font-bold my-2 text-green-600 dark:text-green-400" id="payment-cash-amount">$0.00</p>
+               </div>
+               <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
+               <div id="payment-methods" class="space-y-3">
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 selected" data-method="upi">
+                        <i data-lucide="send" class="h-6 w-6 text-indigo-500"></i> UPI (Unified Payments Interface)
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3" data-method="card">
+                        <i data-lucide="credit-card" class="h-6 w-6 text-indigo-500"></i> Credit/Debit Card
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3" data-method="netbanking">
+                        <i data-lucide="landmark" class="h-6 w-6 text-indigo-500"></i> Net Banking
+                   </button>
+               </div>
+           </main>
+           <footer class="mt-8">
+                <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Deposit</button>
+           </footer>
+       </div>
         
     </div>
     
@@ -305,9 +352,10 @@
             lucide.createIcons();
 
             let state = {
-                currentUser: null, // This will hold the user auth object
-                userData: null, // This will hold user data from Firestore
-                unsubscribe: null // To store the Firestore listener
+                currentUser: null, 
+                userData: null, 
+                unsubscribe: null,
+                cashToAdd: 0 // State to hold cash amount during payment flow
             };
             
             // DOM Elements
@@ -327,6 +375,7 @@
             const transactionList = document.getElementById('transaction-list');
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
+            const addCashForm = document.getElementById('add-cash-form');
             const cashToTokenForm = document.getElementById('cash-to-token-form');
             const tokenToCashForm = document.getElementById('token-to-cash-form');
             const sendButton = document.getElementById('send-button');
@@ -336,6 +385,10 @@
             const sendForm = document.getElementById('send-form');
             const authTitle = document.getElementById('auth-title');
             const authSubtitle = document.getElementById('auth-subtitle');
+            const paymentCashAmount = document.getElementById('payment-cash-amount');
+            const backToWalletBtn = document.getElementById('back-to-wallet-btn');
+            const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
+            const paymentMethodsContainer = document.getElementById('payment-methods');
 
 
             let currentPage = 'auth-page';
@@ -361,7 +414,6 @@
 
                     userEmailDisplay.textContent = state.currentUser.email;
                     userAddressEl.textContent = user.address;
-                    // We will update transactions separately via its own listener for better performance
                 } else {
                     showPage('auth-page');
                 }
@@ -373,8 +425,6 @@
                 const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
                 const q = query(transactionsCol);
 
-                // For real-time updates on transactions, you could use onSnapshot here too.
-                // For simplicity, we'll fetch them once when the UI updates.
                 const querySnapshot = await getDocs(q);
 
                 transactionList.innerHTML = '';
@@ -385,31 +435,43 @@
 
                 let transactions = [];
                 querySnapshot.forEach(doc => transactions.push(doc.data()));
-                // Sort by date, newest first
                 transactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
 
                 transactions.forEach(tx => {
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl';
-                    const isSend = tx.type === 'send';
-                    const isConversion = tx.type === 'conversion';
                     const date = tx.date.toDate().toISOString().split('T')[0];
                     let iconType, iconColor, title, details, amountString;
 
-                    if (isConversion) {
-                        iconType = 'repeat';
-                        iconColor = 'text-blue-500';
-                        title = tx.title;
-                        details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
-                        amountString = tx.amountString;
-                    } else {
-                        iconType = isSend ? 'arrow-up-right' : 'arrow-down-left';
-                        iconColor = isSend ? 'text-red-500' : 'text-green-500';
-                        title = isSend ? 'Sent Tokens' : 'Received Tokens';
-                        const addressToShow = isSend ? tx.to : tx.from;
-                        details = `<p class="text-sm text-gray-500 dark:text-gray-400">${isSend ? 'To' : 'From'}: ${addressToShow.substring(0,10)}...</p>`;
-                        const amountPrefix = isSend ? '-' : '+';
-                        amountString = `${amountPrefix} ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                    switch(tx.type) {
+                        case 'conversion':
+                            iconType = 'repeat';
+                            iconColor = 'text-blue-500';
+                            title = tx.title;
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
+                            amountString = tx.amountString;
+                            break;
+                        case 'send':
+                            iconType = 'arrow-up-right';
+                            iconColor = 'text-red-500';
+                            title = 'Sent Tokens';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>`;
+                            amountString = `- ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'receive':
+                             iconType = 'arrow-down-left';
+                            iconColor = 'text-green-500';
+                            title = 'Received Tokens';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'deposit':
+                            iconType = 'plus-circle';
+                            iconColor = 'text-green-500';
+                            title = 'Cash Deposit';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">via ${tx.method}</p>`;
+                            amountString = `+$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            break;
                     }
                     
                     const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
@@ -428,26 +490,19 @@
                 setTimeout(() => toast.classList.remove('show'), 3000);
             }
 
-            // --- Firestore Auth State Observer ---
             onAuthStateChanged(auth, async (user) => {
-                // Cleanup previous listener if it exists
-                if (state.unsubscribe) {
-                    state.unsubscribe();
-                    state.unsubscribe = null;
-                }
+                if (state.unsubscribe) state.unsubscribe();
 
                 if (user) {
                     state.currentUser = user;
                     const userRef = doc(db, 'users', user.uid);
                     
-                    // Set up a real-time listener for the user's data
                     state.unsubscribe = onSnapshot(userRef, (docSnap) => {
                         if (docSnap.exists()) {
                             state.userData = docSnap.data();
                             updateUI();
                             updateTransactionList();
                         } else {
-                            // First time login for this user, create their document
                             const newUser = {
                                 email: user.email,
                                 balance: 0,
@@ -459,7 +514,6 @@
                             });
                         }
                     });
-
                     showPage('main-page');
                 } else {
                     state.currentUser = null;
@@ -524,6 +578,66 @@
             
             sendButton.addEventListener('click', () => showPage('send-page'));
             receiveButton.addEventListener('click', () => showPage('receive-page'));
+
+            addCashForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const amountInput = document.getElementById('add-cash-amount');
+                const amount = parseFloat(amountInput.value);
+
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Please enter a valid amount to add.', 'error');
+                    return;
+                }
+                state.cashToAdd = amount;
+                paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
+                showPage('payment-gateway-page');
+                amountInput.value = '';
+            });
+            
+            paymentMethodsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('.payment-method');
+                if (!button) return;
+                
+                document.querySelectorAll('.payment-method').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            });
+
+            confirmPaymentBtn.addEventListener('click', async () => {
+                const amount = state.cashToAdd;
+                const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
+                const userRef = doc(db, 'users', state.currentUser.uid);
+
+                if (amount <= 0) {
+                    showToast('Invalid amount.', 'error'); return;
+                }
+                
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const userDoc = await transaction.get(userRef);
+                        if (!userDoc.exists()) throw "Document does not exist!";
+
+                        const newCashBalance = userDoc.data().cashBalance + amount;
+                        transaction.update(userRef, { cashBalance: newCashBalance });
+
+                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
+                        await addDoc(transactionsCol, {
+                            type: 'deposit',
+                            amount: amount,
+                            method: selectedMethod,
+                            date: Timestamp.now()
+                        });
+                    });
+
+                    showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
+                    state.cashToAdd = 0;
+                    showPage('wallet-page');
+                } catch (error) {
+                    console.error("Payment transaction failed: ", error);
+                    showToast('Payment failed. Please try again.', 'error');
+                }
+            });
+
+            backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
 
             cashToTokenForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -619,7 +733,6 @@
                     showToast('Insufficient balance.', 'error'); return;
                 }
 
-                // Find recipient in Firestore
                 const usersCol = collection(db, 'users');
                 const q = query(usersCol, where("address", "==", sendAddress));
                 const querySnapshot = await getDocs(q);
@@ -638,16 +751,13 @@
                         const recipientDocTx = await transaction.get(recipientRef);
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
 
-                        // Deduct from sender
                         const newSenderBalance = senderDoc.data().balance - sendAmount;
                         if (newSenderBalance < 0) throw "Insufficient balance.";
                         transaction.update(senderRef, { balance: newSenderBalance });
 
-                        // Add to recipient
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
                         transaction.update(recipientRef, { balance: newRecipientBalance });
 
-                        // Add transaction records
                         const senderTxCol = collection(db, 'users', senderDoc.id, 'transactions');
                         const recipientTxCol = collection(db, 'users', recipientDoc.id, 'transactions');
                         
