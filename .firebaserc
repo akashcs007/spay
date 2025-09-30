@@ -1,5 +1,16 @@
 {
   "projects": {
-    "default": "spay-191ff"
-  }
+    "default": "spay-191ff",
+    "safe": "spay-191ff"
+  },
+  "targets": {
+    "spay-191ff": {
+      "hosting": {
+        "spay": [
+          "spay"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
