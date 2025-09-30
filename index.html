@@ -237,20 +237,38 @@
                 <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
                     <i data-lucide="arrow-left"></i>
                 </button>
-                <h1 class="text-xl font-bold">Send Tokens</h1>
+                <h1 class="text-xl font-bold">Send Funds</h1>
             </header>
             <main class="p-6 flex-grow">
-                <form id="send-form">
+                 <div class="flex border-b border-gray-300 dark:border-gray-600 mb-4">
+                    <button type="button" id="send-token-tab" class="send-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Tokens</button>
+                    <button type="button" id="send-cash-tab" class="send-tab text-gray-500 flex-1 py-3 font-semibold border-b-2 border-transparent">Cash</button>
+                </div>
+
+                <form id="send-token-form">
                     <div class="mb-4">
-                        <label for="send-address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient Address</label>
-                        <input type="text" id="send-address" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" placeholder="0x...">
+                        <label for="send-address-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient Address</label>
+                        <input type="text" id="send-address-token" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" placeholder="0x...">
                     </div>
                     <div class="mb-6">
-                        <label for="send-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
-                        <input type="number" id="send-amount" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" step="0.01" min="0">
+                        <label for="send-amount-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
+                        <input type="number" id="send-amount-token" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" step="0.01" min="0">
                     </div>
                     <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
+                </form>
+
+                <form id="send-cash-form" class="hidden">
+                     <div class="mb-4">
+                        <label for="send-address-cash" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient Address</label>
+                        <input type="text" id="send-address-cash" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" placeholder="0x...">
+                    </div>
+                    <div class="mb-6">
+                        <label for="send-amount-cash" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (USD)</label>
+                        <input type="number" id="send-amount-cash" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" step="0.01" min="0">
+                    </div>
+                    <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
+                    <button type="submit" class="w-full bg-green-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-green-700 transition transform hover:scale-105 shadow-lg">Send Cash</button>
                 </form>
             </main>
         </div>
@@ -261,14 +279,14 @@
                 <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
                     <i data-lucide="arrow-left"></i>
                 </button>
-                <h1 class="text-xl font-bold">Receive Tokens</h1>
+                <h1 class="text-xl font-bold">Receive Funds</h1>
             </header>
             <main class="p-6 flex-grow flex flex-col justify-center items-center text-center">
-                 <p class="text-gray-500 dark:text-gray-400 mb-4">Your personal wallet address:</p>
+                 <p class="text-gray-500 dark:text-gray-400 mb-4">Share your personal wallet address:</p>
                  <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg w-full text-center mb-4">
                     <p id="user-address" class="font-mono text-sm break-all"></p>
                  </div>
-                 <button id="copy-address-btn" class="flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 px-6 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">
+                 <button id="copy-address-btn" class="flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 px-6 font-bold rounded-lg hover:bg-indigo-700 transition transform hover:scale-105 shadow-lg">
                     <i data-lucide="copy" class="h-5 w-5"></i>
                     Copy Address
                  </button>
@@ -458,7 +476,10 @@
             const receiveButton = document.getElementById('receive-button');
             const userAddressEl = document.getElementById('user-address');
             const copyAddressBtn = document.getElementById('copy-address-btn');
-            const sendForm = document.getElementById('send-form');
+            const sendTokenForm = document.getElementById('send-token-form');
+            const sendCashForm = document.getElementById('send-cash-form');
+            const sendTokenTab = document.getElementById('send-token-tab');
+            const sendCashTab = document.getElementById('send-cash-tab');
             const authTitle = document.getElementById('auth-title');
             const authSubtitle = document.getElementById('auth-subtitle');
             const paymentCashAmount = document.getElementById('payment-cash-amount');
@@ -537,19 +558,33 @@
                             details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
                             amountString = tx.amountString;
                             break;
-                        case 'send':
+                        case 'send_token':
                             iconType = 'arrow-up-right';
                             iconColor = 'text-red-500';
                             title = 'Sent Tokens';
                             details = `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>`;
                             amountString = `- ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
                             break;
-                        case 'receive':
+                        case 'receive_token':
                              iconType = 'arrow-down-left';
                             iconColor = 'text-green-500';
                             title = 'Received Tokens';
                             details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
                             amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'send_cash':
+                            iconType = 'arrow-up-right';
+                            iconColor = 'text-red-500';
+                            title = 'Sent Cash';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>`;
+                            amountString = `-$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            break;
+                        case 'receive_cash':
+                             iconType = 'arrow-down-left';
+                            iconColor = 'text-green-500';
+                            title = 'Received Cash';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
+                            amountString = `+$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             break;
                         case 'deposit':
                             iconType = 'plus-circle';
@@ -631,7 +666,7 @@
                                 pin: null,
                                 transactions: [
                                     { type: 'deposit', amount: 100, method: 'Welcome Bonus', date: Timestamp.now() },
-                                    { type: 'receive', amount: 500, from: 'Spay Bonus', date: Timestamp.now() }
+                                    { type: 'receive_token', amount: 500, from: 'Spay Bonus', date: Timestamp.now() }
                                 ]
                             };
                             setDoc(userRef, newUser).then(() => {
@@ -854,17 +889,36 @@
                     showToast(`Conversion failed: ${error.message}`, 'error');
                 }
             });
+
+            function setupSendTabs() {
+                sendTokenTab.addEventListener('click', () => {
+                    sendTokenTab.classList.add('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
+                    sendTokenTab.classList.remove('text-gray-500', 'border-transparent');
+                    sendCashTab.classList.remove('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
+                    sendCashTab.classList.add('text-gray-500', 'border-transparent');
+                    sendTokenForm.classList.remove('hidden');
+                    sendCashForm.classList.add('hidden');
+                });
+                sendCashTab.addEventListener('click', () => {
+                    sendCashTab.classList.add('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
+                    sendCashTab.classList.remove('text-gray-500', 'border-transparent');
+                    sendTokenTab.classList.remove('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
+                    sendTokenTab.classList.add('text-gray-500', 'border-transparent');
+                    sendCashForm.classList.remove('hidden');
+                    sendTokenForm.classList.add('hidden');
+                });
+            }
+            setupSendTabs();
             
-            sendForm.addEventListener('submit', async (e) => {
+            sendTokenForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const senderRef = doc(db, 'users', state.currentUser.uid);
-                const sendAddress = document.getElementById('send-address').value;
-                const sendAmount = parseFloat(document.getElementById('send-amount').value);
+                const sendAddress = document.getElementById('send-address-token').value;
+                const sendAmount = parseFloat(document.getElementById('send-amount-token').value);
                 
                 if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
                     showToast('Please fill all fields correctly.', 'error'); return;
                 }
-
                 if (state.userData.balance < sendAmount) {
                     showToast('Insufficient token balance.', 'error'); return;
                 }
@@ -877,8 +931,7 @@
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty || querySnapshot.docs[0].id === state.currentUser.uid) {
-                    showToast('Recipient address not found or you cannot send to yourself.', 'error');
-                    return;
+                    showToast('Recipient address not found or you cannot send to yourself.', 'error'); return;
                 }
                 
                 const recipientDoc = querySnapshot.docs[0];
@@ -900,25 +953,84 @@
                             balance: newSenderBalance, 
                             cashBalance: newSenderCashBalance,
                             transactions: arrayUnion(
-                                { type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
+                                { type: 'send_token', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
                                 { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
                             ) 
                         });
                         transaction.update(recipientRef, { 
                             balance: newRecipientBalance,
                             transactions: arrayUnion(
-                                { type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
+                                { type: 'receive_token', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
                             )
                         });
                     });
                     showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
                     showPage('main-page');
-                    sendForm.reset();
+                    sendTokenForm.reset();
                 } catch (error) {
                     console.error("Send transaction failed: ", error);
                     showToast(`Send failed: ${error.message}`, 'error');
                 }
             });
+
+             sendCashForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const senderRef = doc(db, 'users', state.currentUser.uid);
+                const sendAddress = document.getElementById('send-address-cash').value;
+                const sendAmount = parseFloat(document.getElementById('send-amount-cash').value);
+                
+                if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
+                    showToast('Please fill all fields correctly.', 'error'); return;
+                }
+                if ((state.userData.cashBalance-sendAmount) < TRANSACTION_FEE) {
+                    showToast('Insufficient cash for transfer and fee.', 'error'); return;
+                }
+                
+                const usersCol = collection(db, 'users');
+                const q = query(usersCol, where("address", "==", sendAddress));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty || querySnapshot.docs[0].id === state.currentUser.uid) {
+                    showToast('Recipient address not found or you cannot send to yourself.', 'error'); return;
+                }
+                
+                const recipientDoc = querySnapshot.docs[0];
+                const recipientRef = recipientDoc.ref;
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const senderDoc = await transaction.get(senderRef);
+                        const recipientDocTx = await transaction.get(recipientRef);
+                        if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+
+                        const newSenderCashBalance = senderDoc.data().cashBalance - sendAmount - TRANSACTION_FEE;
+                        if (newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
+                       
+                        const newRecipientCashBalance = recipientDocTx.data().cashBalance + sendAmount;
+                        
+                        transaction.update(senderRef, { 
+                            cashBalance: newSenderCashBalance,
+                            transactions: arrayUnion(
+                                { type: 'send_cash', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
+                                { type: 'fee', amount: TRANSACTION_FEE, details: `For sending cash`, date: Timestamp.now() }
+                            ) 
+                        });
+                        transaction.update(recipientRef, { 
+                            cashBalance: newRecipientCashBalance,
+                            transactions: arrayUnion(
+                                { type: 'receive_cash', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
+                            )
+                        });
+                    });
+                    showToast(`Successfully sent $${sendAmount.toFixed(2)}.`, 'success');
+                    showPage('main-page');
+                    sendCashForm.reset();
+                } catch (error) {
+                    console.error("Send transaction failed: ", error);
+                    showToast(`Send failed: ${error.message}`, 'error');
+                }
+            });
+
 
             copyAddressBtn.addEventListener('click', () => {
                 const address = userAddressEl.textContent;
@@ -1297,3 +1409,4 @@
     </script>
 </body>
 </html>
+
