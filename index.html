@@ -742,7 +742,7 @@
                 const userRef = doc(db, 'users', state.currentUser.uid);
                 
                 try {
-                    await runTransaction(db, async (transaction) => {
+                     await runTransaction(db, async (transaction) => {
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists()) throw "Document does not exist!";
 
@@ -1297,4 +1297,3 @@
     </script>
 </body>
 </html>
-
