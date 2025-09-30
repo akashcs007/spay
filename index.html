@@ -246,6 +246,7 @@
                         <label for="send-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
                         <input type="number" id="send-amount" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 transition" step="0.01" min="0">
                     </div>
+                    <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
                     <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
                 </form>
             </main>
@@ -281,8 +282,9 @@
            </header>
            <main class="flex-grow">
                 <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
-                   <p class="text-gray-500 dark:text-gray-400">You are adding</p>
+                   <p class="text-gray-500 dark:text-gray-400">Amount to Add</p>
                    <p class="text-3xl font-bold my-2 text-green-600 dark:text-green-400" id="payment-cash-amount">$0.00</p>
+                   <p class="text-sm text-red-500">A $5.00 transaction fee will be applied.</p>
                </div>
                <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
                <div id="payment-methods" class="space-y-3">
@@ -351,11 +353,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
 
+            const TRANSACTION_FEE = 5; // $5 Fee
+
             let state = {
                 currentUser: null, 
                 userData: null, 
                 unsubscribe: null,
-                cashToAdd: 0 // State to hold cash amount during payment flow
+                cashToAdd: 0 
             };
             
             // DOM Elements
@@ -472,6 +476,13 @@
                             details = `<p class="text-sm text-gray-500 dark:text-gray-400">via ${tx.method}</p>`;
                             amountString = `+$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             break;
+                        case 'fee':
+                            iconType = 'hand-coins';
+                            iconColor = 'text-gray-500';
+                            title = 'Transaction Fee';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
+                            amountString = `-$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            break;
                     }
                     
                     const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
@@ -505,8 +516,8 @@
                         } else {
                             const newUser = {
                                 email: user.email,
-                                balance: 0,
-                                cashBalance: 100,
+                                balance: 1000, // Welcome bonus tokens
+                                cashBalance: 100, // Welcome bonus cash
                                 address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
                             };
                             setDoc(userRef, newUser).then(() => {
@@ -517,7 +528,13 @@
                                     method: 'Welcome Bonus',
                                     date: Timestamp.now()
                                 });
-                                showToast(`Welcome! $100 has been added to your account.`, 'success');
+                                 addDoc(transactionsCol, {
+                                    type: 'receive',
+                                    amount: 1000,
+                                    from: 'Spay Bonus',
+                                    date: Timestamp.now()
+                                });
+                                showToast(`Welcome! $100 and 1000 TKN have been added.`, 'success');
                             });
                         }
                     });
@@ -595,6 +612,10 @@
                     showToast('Please enter a valid amount to add.', 'error');
                     return;
                 }
+                 if (amount <= TRANSACTION_FEE) {
+                    showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error');
+                    return;
+                }
                 state.cashToAdd = amount;
                 paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
                 showPage('payment-gateway-page');
@@ -611,6 +632,7 @@
 
             confirmPaymentBtn.addEventListener('click', async () => {
                 const amount = state.cashToAdd;
+                const netAmount = amount - TRANSACTION_FEE;
                 const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
                 const userRef = doc(db, 'users', state.currentUser.uid);
 
@@ -623,19 +645,25 @@
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists()) throw "Document does not exist!";
 
-                        const newCashBalance = userDoc.data().cashBalance + amount;
+                        const newCashBalance = userDoc.data().cashBalance + netAmount;
                         transaction.update(userRef, { cashBalance: newCashBalance });
 
                         const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
                         await addDoc(transactionsCol, {
                             type: 'deposit',
-                            amount: amount,
+                            amount: netAmount,
                             method: selectedMethod,
+                            date: Timestamp.now()
+                        });
+                        await addDoc(transactionsCol, {
+                            type: 'fee',
+                            amount: TRANSACTION_FEE,
+                            details: `For cash deposit`,
                             date: Timestamp.now()
                         });
                     });
 
-                    showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
+                    showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
                     state.cashToAdd = 0;
                     showPage('wallet-page');
                 } catch (error) {
@@ -656,8 +684,8 @@
                     showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
-                if (state.userData.cashBalance < cashAmount) {
-                    showToast('Insufficient cash balance.', 'error'); return;
+                if (state.userData.cashBalance < (cashAmount + TRANSACTION_FEE)) {
+                    showToast('Insufficient cash for conversion and fee.', 'error'); return;
                 }
 
                 try {
@@ -665,7 +693,7 @@
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists()) throw "Document does not exist!";
 
-                        const newCashBalance = userDoc.data().cashBalance - cashAmount;
+                        const newCashBalance = userDoc.data().cashBalance - cashAmount - TRANSACTION_FEE;
                         const newBalance = userDoc.data().balance + cashAmount;
                         transaction.update(userRef, { cashBalance: newCashBalance, balance: newBalance });
                         
@@ -675,6 +703,12 @@
                             title: 'Cash to Token',
                             details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
                             amountString: `+${cashAmount.toFixed(2)} TKN`,
+                            date: Timestamp.now()
+                        });
+                        await addDoc(transactionsCol, {
+                            type: 'fee',
+                            amount: TRANSACTION_FEE,
+                            details: `For cash to token conversion`,
                             date: Timestamp.now()
                         });
                     });
@@ -699,6 +733,9 @@
                 if (state.userData.balance < tokenAmount) {
                     showToast('Insufficient token balance.', 'error'); return;
                 }
+                if (state.userData.cashBalance < TRANSACTION_FEE) {
+                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
+                }
 
                 try {
                     await runTransaction(db, async (transaction) => {
@@ -706,7 +743,7 @@
                         if (!userDoc.exists()) throw "Document does not exist!";
 
                         const newBalance = userDoc.data().balance - tokenAmount;
-                        const newCashBalance = userDoc.data().cashBalance + tokenAmount;
+                        const newCashBalance = userDoc.data().cashBalance + tokenAmount - TRANSACTION_FEE;
                         transaction.update(userRef, { balance: newBalance, cashBalance: newCashBalance });
                         
                         const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
@@ -715,6 +752,12 @@
                             title: 'Token to Cash',
                             details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
                             amountString: `+$${tokenAmount.toFixed(2)}`,
+                            date: Timestamp.now()
+                        });
+                        await addDoc(transactionsCol, {
+                            type: 'fee',
+                            amount: TRANSACTION_FEE,
+                            details: `For token to cash conversion`,
                             date: Timestamp.now()
                         });
                     });
@@ -737,7 +780,10 @@
                 }
 
                 if (state.userData.balance < sendAmount) {
-                    showToast('Insufficient balance.', 'error'); return;
+                    showToast('Insufficient token balance.', 'error'); return;
+                }
+                 if (state.userData.cashBalance < TRANSACTION_FEE) {
+                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
                 }
 
                 const usersCol = collection(db, 'users');
@@ -759,8 +805,9 @@
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
 
                         const newSenderBalance = senderDoc.data().balance - sendAmount;
-                        if (newSenderBalance < 0) throw "Insufficient balance.";
-                        transaction.update(senderRef, { balance: newSenderBalance });
+                        const newSenderCashBalance = senderDoc.data().cashBalance - TRANSACTION_FEE;
+                        if (newSenderBalance < 0 || newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
+                        transaction.update(senderRef, { balance: newSenderBalance, cashBalance: newSenderCashBalance });
 
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
                         transaction.update(recipientRef, { balance: newRecipientBalance });
@@ -770,6 +817,9 @@
                         
                         await addDoc(senderTxCol, {
                             type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now()
+                        });
+                        await addDoc(senderTxCol, {
+                            type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now()
                         });
                         await addDoc(recipientTxCol, {
                             type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now()
@@ -807,17 +857,4 @@
     </script>
 </body>
 </html>
-
-" code between  and  in the most up-to-date Canvas "Digital Wallet App" document above and am asking a query about/based on this code below.
-Instructions to follow:
-  * Don't output/edit the document if the query is Direct/Simple. For example, if the query asks for a simple explanation, output a direct answer.
-  * Make sure to **edit** the document if the query shows the intent of editing the document, in which case output the entire edited document, **not just that section or the edits**.
-    * Don't output the same document/empty document and say that you have edited it.
-    * Don't change unrelated code in the document.
-  * Don't output  and  in your final response.
-  * Any references like "this" or "selected code" refers to the code between  and  tags.
-  * Just acknowledge my request in the introduction.
-  * Make sure to refer to the document as "Canvas" in your response.
-
-add transaction fee of 5$ for all transactions
 
