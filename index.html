@@ -808,16 +808,16 @@
                 e.preventDefault();
                 const cashAmountInput = document.getElementById('cash-amount');
                 const cashAmount = parseFloat(cashAmountInput.value);
-                const userRef = doc(db, 'users', state.currentUser.uid);
-
+                
                 if (isNaN(cashAmount) || cashAmount <= 0) {
                     showToast('Please enter a valid amount.', 'error'); return;
                 }
                 
+                const userRef = doc(db, 'users', state.currentUser.uid);
                 try {
                      await runTransaction(db, async (transaction) => {
                         const userDoc = await transaction.get(userRef);
-                        if (!userDoc.exists()) throw "Document does not exist!";
+                        if (!userDoc.exists()) throw new Error("User data not found.");
 
                         if (userDoc.data().cashBalance < (cashAmount + TRANSACTION_FEE)) {
                            throw new Error('Insufficient cash for conversion and fee.');
@@ -858,7 +858,7 @@
                 try {
                     await runTransaction(db, async (transaction) => {
                         const userDoc = await transaction.get(userRef);
-                        if (!userDoc.exists()) throw "Document does not exist!";
+                        if (!userDoc.exists()) throw new Error("User data not found.");
                         
                         if (userDoc.data().balance < tokenAmount) {
                             throw new Error('Insufficient token balance.');
@@ -891,7 +891,7 @@
             });
 
             function setupSendTabs() {
-                sendTokenTab.addEventListener('click', () => {
+                if(sendTokenTab) sendTokenTab.addEventListener('click', () => {
                     sendTokenTab.classList.add('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
                     sendTokenTab.classList.remove('text-gray-500', 'border-transparent');
                     sendCashTab.classList.remove('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
@@ -899,7 +899,7 @@
                     sendTokenForm.classList.remove('hidden');
                     sendCashForm.classList.add('hidden');
                 });
-                sendCashTab.addEventListener('click', () => {
+                if(sendCashTab) sendCashTab.addEventListener('click', () => {
                     sendCashTab.classList.add('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
                     sendCashTab.classList.remove('text-gray-500', 'border-transparent');
                     sendTokenTab.classList.remove('text-indigo-600', 'dark:text-indigo-300', 'border-indigo-600', 'dark:border-indigo-300');
@@ -910,7 +910,7 @@
             }
             setupSendTabs();
             
-            sendTokenForm.addEventListener('submit', async (e) => {
+            if(sendTokenForm) sendTokenForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const senderRef = doc(db, 'users', state.currentUser.uid);
                 const sendAddress = document.getElementById('send-address-token').value;
@@ -918,12 +918,6 @@
                 
                 if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
                     showToast('Please fill all fields correctly.', 'error'); return;
-                }
-                if (state.userData.balance < sendAmount) {
-                    showToast('Insufficient token balance.', 'error'); return;
-                }
-                 if (state.userData.cashBalance < TRANSACTION_FEE) {
-                    showToast('Insufficient cash to pay transaction fee.', 'error'); return;
                 }
 
                 const usersCol = collection(db, 'users');
@@ -942,10 +936,12 @@
                         const senderDoc = await transaction.get(senderRef);
                         const recipientDocTx = await transaction.get(recipientRef);
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+                        
+                        if (senderDoc.data().balance < sendAmount) throw new Error('Insufficient token balance.');
+                        if (senderDoc.data().cashBalance < TRANSACTION_FEE) throw new Error('Insufficient cash to pay transaction fee.');
 
                         const newSenderBalance = senderDoc.data().balance - sendAmount;
                         const newSenderCashBalance = senderDoc.data().cashBalance - TRANSACTION_FEE;
-                        if (newSenderBalance < 0 || newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
                        
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
                         
@@ -973,7 +969,7 @@
                 }
             });
 
-             sendCashForm.addEventListener('submit', async (e) => {
+             if(sendCashForm) sendCashForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const senderRef = doc(db, 'users', state.currentUser.uid);
                 const sendAddress = document.getElementById('send-address-cash').value;
@@ -981,9 +977,6 @@
                 
                 if(!sendAddress || isNaN(sendAmount) || sendAmount <= 0) {
                     showToast('Please fill all fields correctly.', 'error'); return;
-                }
-                if ((state.userData.cashBalance-sendAmount) < TRANSACTION_FEE) {
-                    showToast('Insufficient cash for transfer and fee.', 'error'); return;
                 }
                 
                 const usersCol = collection(db, 'users');
@@ -1002,9 +995,12 @@
                         const senderDoc = await transaction.get(senderRef);
                         const recipientDocTx = await transaction.get(recipientRef);
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+                        
+                        if ((senderDoc.data().cashBalance-sendAmount) < TRANSACTION_FEE) {
+                            throw new Error('Insufficient cash for transfer and fee.');
+                        }
 
                         const newSenderCashBalance = senderDoc.data().cashBalance - sendAmount - TRANSACTION_FEE;
-                        if (newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
                        
                         const newRecipientCashBalance = recipientDocTx.data().cashBalance + sendAmount;
                         
@@ -1032,7 +1028,7 @@
             });
 
 
-            copyAddressBtn.addEventListener('click', () => {
+            if(copyAddressBtn) copyAddressBtn.addEventListener('click', () => {
                 const address = userAddressEl.textContent;
                 const textArea = document.createElement("textarea");
                 textArea.value = address;
