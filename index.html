@@ -404,7 +404,7 @@
                     const isSend = tx.type === 'send';
                     const iconColor = isSend ? 'text-red-500' : 'text-green-500';
                     const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${isSend ? 'arrow-up-right' : 'arrow-down-left'}" class="h-6 w-6 ${iconColor}"></i></div>`;
-                    const details = isSend ? `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>` : `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from}</p>`;
+                    const details = isSend ? `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>` : `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
                     li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${isSend ? 'Sent Tokens' : 'Received Tokens'}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${isSend ? '-' : '+'} ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN</p><p class="text-xs text-gray-500 dark:text-gray-400">${tx.date}</p></div>`;
                     transactionList.appendChild(li);
                 });
@@ -445,7 +445,7 @@
                     if (!state.users[email]) {
                         state.users[email] = {
                             balance: 0,
-                            address: `0x${[...Array(20)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                            address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
                             transactions: []
                         };
                         saveUsersToLocalStorage();
@@ -530,11 +530,9 @@
             walletButton.addEventListener('click', () => showPage('wallet-page'));
             backToMainBtns.forEach(btn => btn.addEventListener('click', () => showPage('main-page')));
             
-            // --- FIX: Add Event Listeners for Send/Receive buttons ---
             sendButton.addEventListener('click', () => showPage('send-page'));
             receiveButton.addEventListener('click', () => showPage('receive-page'));
 
-            // --- FIX: Handle Cash to Token form submission ---
             cashToTokenForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const cashAmountInput = document.getElementById('cash-amount');
@@ -575,7 +573,7 @@
             
             sendForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                const user = state.users[state.currentUser];
+                const sender = state.users[state.currentUser];
                 const sendAddress = document.getElementById('send-address').value;
                 const sendAmount = parseFloat(document.getElementById('send-amount').value);
                 
@@ -584,20 +582,38 @@
                     return;
                 }
 
-                if (user.balance < sendAmount) {
+                if (sender.balance < sendAmount) {
                     showToast('Insufficient balance.', 'error');
                     return;
                 }
 
-                user.balance -= sendAmount;
-                user.transactions.push({
+                // --- MODIFIED LOGIC: Find recipient and transfer tokens ---
+                const recipientEmail = Object.keys(state.users).find(email => state.users[email].address === sendAddress);
+                const recipient = recipientEmail ? state.users[recipientEmail] : null;
+
+                if (!recipient || recipientEmail === state.currentUser) {
+                    showToast('Recipient address not found or you cannot send to yourself.', 'error');
+                    return;
+                }
+
+                // Deduct from sender
+                sender.balance -= sendAmount;
+                sender.transactions.push({
                     type: 'send',
                     amount: sendAmount,
                     to: sendAddress,
                     date: new Date().toISOString().split('T')[0]
                 });
                 
-                // For this simulation, we don't credit another user.
+                // Add to recipient
+                recipient.balance += sendAmount;
+                recipient.transactions.push({
+                    type: 'receive',
+                    amount: sendAmount,
+                    from: sender.address,
+                    date: new Date().toISOString().split('T')[0]
+                });
+
                 saveUsersToLocalStorage();
                 showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
                 updateUI();
