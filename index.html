@@ -330,7 +330,7 @@
             where,
             getDocs,
             runTransaction,
-            addDoc,
+            writeBatch,
             Timestamp
         } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
@@ -425,20 +425,16 @@
             async function updateTransactionList() {
                 if(!state.currentUser) return;
                 
-                const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                const q = query(transactionsCol);
-
-                const querySnapshot = await getDocs(q);
-
+                const user = state.userData;
                 transactionList.innerHTML = '';
-                if (querySnapshot.empty) {
+
+                if (!user.transactions || user.transactions.length === 0) {
                      transactionList.innerHTML = '<li class="text-center text-gray-500 dark:text-gray-400 py-4">No transactions yet.</li>';
                      return;
                 }
-
-                let transactions = [];
-                querySnapshot.forEach(doc => transactions.push(doc.data()));
-                transactions.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+                
+                // Transactions are now sorted directly from the user data array
+                const transactions = [...user.transactions].sort((a, b) => b.date.toMillis() - a.date.toMillis());
 
                 transactions.forEach(tx => {
                     const li = document.createElement('li');
@@ -515,24 +511,25 @@
                         } else {
                             const newUser = {
                                 email: user.email,
-                                balance: 1000, // Welcome bonus tokens
-                                cashBalance: 100, // Welcome bonus cash
+                                balance: 1000,
+                                cashBalance: 100,
                                 address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                                transactions: [
+                                    {
+                                        type: 'deposit',
+                                        amount: 100,
+                                        method: 'Welcome Bonus',
+                                        date: Timestamp.now()
+                                    },
+                                    {
+                                        type: 'receive',
+                                        amount: 1000,
+                                        from: 'Spay Bonus',
+                                        date: Timestamp.now()
+                                    }
+                                ]
                             };
                             setDoc(userRef, newUser).then(() => {
-                                const transactionsCol = collection(db, 'users', user.uid, 'transactions');
-                                addDoc(transactionsCol, {
-                                    type: 'deposit',
-                                    amount: 100,
-                                    method: 'Welcome Bonus',
-                                    date: Timestamp.now()
-                                });
-                                 addDoc(transactionsCol, {
-                                    type: 'receive',
-                                    amount: 1000,
-                                    from: 'Spay Bonus',
-                                    date: Timestamp.now()
-                                });
                                 showToast(`Welcome! $100 and 1000 TKN have been added.`, 'success');
                             });
                         }
@@ -590,9 +587,6 @@
                 const email = document.getElementById('register-identifier').value;
                 const password = document.getElementById('register-password').value;
                 createUserWithEmailAndPassword(auth, email, password)
-                    .then(() => {
-                         showToast('Account created successfully! Welcome.', 'success');
-                    })
                     .catch(error => showToast(error.message, 'error'));
             });
 
@@ -648,25 +642,15 @@
                         if (!userDoc.exists()) throw "Document does not exist!";
 
                         const newCashBalance = userDoc.data().cashBalance + netAmount;
-                        transaction.update(userRef, { cashBalance: newCashBalance });
-
-                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
+                        const newTransactions = [
+                            ...userDoc.data().transactions,
+                            { type: 'deposit', amount: netAmount, method: selectedMethod, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash deposit`, date: Timestamp.now() }
+                        ];
                         
-                        // Create new doc refs for the transactions
-                        const depositTxRef = doc(transactionsCol);
-                        const feeTxRef = doc(transactionsCol);
-
-                        transaction.set(depositTxRef, {
-                            type: 'deposit',
-                            amount: netAmount,
-                            method: selectedMethod,
-                            date: Timestamp.now()
-                        });
-                        transaction.set(feeTxRef, {
-                            type: 'fee',
-                            amount: TRANSACTION_FEE,
-                            details: `For cash deposit`,
-                            date: Timestamp.now()
+                        transaction.update(userRef, { 
+                            cashBalance: newCashBalance,
+                            transactions: newTransactions 
                         });
                     });
 
@@ -701,24 +685,16 @@
 
                         const newCashBalance = userDoc.data().cashBalance - cashAmount - TRANSACTION_FEE;
                         const newBalance = userDoc.data().balance + cashAmount;
-                        transaction.update(userRef, { cashBalance: newCashBalance, balance: newBalance });
-                        
-                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                        const conversionTxRef = doc(transactionsCol);
-                        const feeTxRef = doc(transactionsCol);
+                        const newTransactions = [
+                            ...userDoc.data().transactions,
+                            { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash to token conversion`, date: Timestamp.now() }
+                        ];
 
-                        transaction.set(conversionTxRef, {
-                            type: 'conversion',
-                            title: 'Cash to Token',
-                            details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
-                            amountString: `+${cashAmount.toFixed(2)} TKN`,
-                            date: Timestamp.now()
-                        });
-                        transaction.set(feeTxRef, {
-                            type: 'fee',
-                            amount: TRANSACTION_FEE,
-                            details: `For cash to token conversion`,
-                            date: Timestamp.now()
+                        transaction.update(userRef, { 
+                            cashBalance: newCashBalance, 
+                            balance: newBalance,
+                            transactions: newTransactions
                         });
                     });
                     showToast('Conversion successful!', 'success');
@@ -753,24 +729,16 @@
 
                         const newBalance = userDoc.data().balance - tokenAmount;
                         const newCashBalance = userDoc.data().cashBalance + tokenAmount - TRANSACTION_FEE;
-                        transaction.update(userRef, { balance: newBalance, cashBalance: newCashBalance });
-                        
-                        const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                        const conversionTxRef = doc(transactionsCol);
-                        const feeTxRef = doc(transactionsCol);
+                        const newTransactions = [
+                             ...userDoc.data().transactions,
+                            { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For token to cash conversion`, date: Timestamp.now() }
+                        ];
 
-                        transaction.set(conversionTxRef, {
-                            type: 'conversion',
-                            title: 'Token to Cash',
-                            details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
-                            amountString: `+$${tokenAmount.toFixed(2)}`,
-                            date: Timestamp.now()
-                        });
-                        transaction.set(feeTxRef, {
-                            type: 'fee',
-                            amount: TRANSACTION_FEE,
-                            details: `For token to cash conversion`,
-                            date: Timestamp.now()
+                        transaction.update(userRef, { 
+                            balance: newBalance, 
+                            cashBalance: newCashBalance,
+                            transactions: newTransactions
                         });
                     });
                     showToast('Conversion successful!', 'success');
@@ -819,26 +787,28 @@
                         const newSenderBalance = senderDoc.data().balance - sendAmount;
                         const newSenderCashBalance = senderDoc.data().cashBalance - TRANSACTION_FEE;
                         if (newSenderBalance < 0 || newSenderCashBalance < 0) throw "Insufficient funds for transaction and fee.";
-                        transaction.update(senderRef, { balance: newSenderBalance, cashBalance: newSenderCashBalance });
-
+                       
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
-                        transaction.update(recipientRef, { balance: newRecipientBalance });
+                        
+                        const newSenderTransactions = [
+                             ...senderDoc.data().transactions,
+                            { type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
+                            { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
+                        ];
 
-                        const senderTxCol = collection(db, 'users', senderDoc.id, 'transactions');
-                        const recipientTxCol = collection(db, 'users', recipientDoc.id, 'transactions');
-                        
-                        const senderSendTxRef = doc(senderTxCol);
-                        const senderFeeTxRef = doc(senderTxCol);
-                        const recipientTxRef = doc(recipientTxCol);
-                        
-                        transaction.set(senderSendTxRef, {
-                            type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now()
+                        const newRecipientTransactions = [
+                            ...recipientDocTx.data().transactions,
+                            { type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
+                        ];
+
+                        transaction.update(senderRef, { 
+                            balance: newSenderBalance, 
+                            cashBalance: newSenderCashBalance,
+                            transactions: newSenderTransactions 
                         });
-                        transaction.set(senderFeeTxRef, {
-                            type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now()
-                        });
-                        transaction.set(recipientTxRef, {
-                            type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now()
+                        transaction.update(recipientRef, { 
+                            balance: newRecipientBalance,
+                            transactions: newRecipientTransactions
                         });
                     });
                     showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
