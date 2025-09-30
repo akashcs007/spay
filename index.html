@@ -105,7 +105,6 @@
                     <hr class="flex-grow border-gray-300 dark:border-gray-600">
                 </div>
 
-                <!-- Email/Password Login is now connected to Firebase -->
                 <form id="login-form">
                     <div class="flex border-b border-gray-300 dark:border-gray-600 mb-4">
                         <button type="button" class="auth-tab flex-1 py-3 font-semibold border-b-2 text-indigo-600 dark:text-indigo-300 border-indigo-600 dark:border-indigo-300">Email</button>
@@ -124,7 +123,6 @@
                     </p>
                 </form>
 
-                <!-- Register Form (hidden by default) -->
                 <form id="register-form" class="hidden">
                      <div class="mb-4">
                         <label for="register-identifier" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
@@ -163,14 +161,20 @@
                 <div class="text-xl text-gray-600 dark:text-gray-300 font-semibold">
                     $<span id="main-cash-balance">0.00</span> USD
                 </div>
-                <div class="grid grid-cols-2 gap-6 w-full max-w-xs mt-10">
-                    <button id="send-button" class="flex flex-col items-center justify-center bg-indigo-600 text-white p-6 rounded-2xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 hover:-translate-y-1">
-                        <i data-lucide="arrow-up-circle" class="h-10 w-10 mb-2"></i>
+                <div class="grid grid-cols-2 gap-4 w-full max-w-sm mt-10">
+                    <button id="send-button" class="flex flex-col items-center justify-center bg-indigo-600 text-white p-4 rounded-2xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="arrow-up-circle" class="h-8 w-8 mb-2"></i>
                         <span class="font-bold">Send</span>
                     </button>
-                    <button id="receive-button" class="flex flex-col items-center justify-center bg-green-500 text-white p-6 rounded-2xl shadow-lg hover:bg-green-600 transition transform hover:scale-105 hover:-translate-y-1">
-                        <i data-lucide="arrow-down-circle" class="h-10 w-10 mb-2"></i>
+                    <button id="receive-button" class="flex flex-col items-center justify-center bg-green-500 text-white p-4 rounded-2xl shadow-lg hover:bg-green-600 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="arrow-down-circle" class="h-8 w-8 mb-2"></i>
                         <span class="font-bold">Receive</span>
+                    </button>
+                </div>
+                 <div class="w-full max-w-sm mt-4">
+                     <button id="business-payment-button" class="w-full flex flex-col items-center justify-center bg-slate-700 text-white p-4 rounded-2xl shadow-lg hover:bg-slate-800 transition transform hover:scale-105 hover:-translate-y-1">
+                        <i data-lucide="store" class="h-8 w-8 mb-2"></i>
+                        <span class="font-bold">Business Payment</span>
                     </button>
                 </div>
                  <button id="logout-button" class="absolute bottom-6 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition">Logout</button>
@@ -195,7 +199,6 @@
                 </div>
                 
                  <div class="grid grid-cols-1 gap-6 mb-8">
-                    <!-- ADD CASH FORM -->
                     <form id="add-cash-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
                         <h3 class="font-semibold mb-3">Add Cash to Wallet</h3>
                         <div class="flex items-center">
@@ -275,7 +278,7 @@
         <!-- PAYMENT GATEWAY PAGE -->
         <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
             <header class="flex items-center mb-8">
-               <button id="back-to-wallet-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+               <button class="back-to-wallet-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
                    <i data-lucide="arrow-left"></i>
                </button>
                <h1 class="text-2xl font-bold">Secure Payment</h1>
@@ -303,12 +306,76 @@
                 <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Deposit</button>
            </footer>
        </div>
-        
+
+        <!-- Business Payment Page -->
+        <div id="business-page" class="page">
+            <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-main-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Business & Escrow</h1>
+            </header>
+            <main class="p-6 flex-grow overflow-y-auto space-y-8">
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">Create a New Sale</h2>
+                    <form id="create-sale-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl space-y-4">
+                        <div>
+                            <label for="product-details" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Details (max 10 words)</label>
+                            <input type="text" id="product-details" required maxlength="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500" placeholder="e.g., Vintage Wrist Watch">
+                        </div>
+                        <div>
+                            <label for="product-price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price (TKN)</label>
+                            <input type="number" id="product-price" required class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500" placeholder="e.g., 1000" min="1">
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 font-bold rounded-lg hover:bg-indigo-700 transition">Create Sale</button>
+                    </form>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold mb-4">My Escrow Transactions</h2>
+                    <div id="my-escrow-list" class="space-y-3">
+                        <p class="text-center text-gray-500 dark:text-gray-400">No active sales or purchases.</p>
+                    </div>
+                </div>
+                 <div>
+                    <h2 class="text-lg font-semibold mb-4">Items for Sale</h2>
+                    <div id="active-sales-list" class="space-y-3">
+                        <p class="text-center text-gray-500 dark:text-gray-400">Loading items...</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- PIN Page -->
+        <div id="pin-page" class="page p-6 sm:p-8 flex-grow flex flex-col justify-center">
+            <div class="text-center">
+                <h2 id="pin-title" class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Set Your Security PIN</h2>
+                <p id="pin-subtitle" class="text-gray-500 dark:text-gray-400 mb-8">This PIN will be used to authorize payments.</p>
+                <form id="pin-form">
+                    <input type="password" id="pin-input" required maxlength="4" class="w-full max-w-xs mx-auto text-center text-3xl tracking-[1em] px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" placeholder="••••">
+                    <button type="submit" id="pin-submit-button" class="mt-8 w-full max-w-xs bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 transition">Set PIN</button>
+                </form>
+                <button id="change-pin-button" class="hidden mt-4 text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">Change PIN</button>
+                 <button class="back-to-business-btn mt-8 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Order Details Page -->
+        <div id="order-details-page" class="page">
+             <header class="p-4 flex items-center border-b border-gray-200 dark:border-gray-700">
+                <button class="back-to-business-btn p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+                    <i data-lucide="arrow-left"></i>
+                </button>
+                <h1 class="text-xl font-bold">Order Details</h1>
+            </header>
+            <main id="order-details-content" class="p-6 flex-grow overflow-y-auto space-y-4">
+                <!-- Content will be injected by JS -->
+            </main>
+        </div>
+
     </div>
     
     <!-- Firebase SDK -->
     <script type="module">
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { 
             getAuth, 
@@ -331,7 +398,10 @@
             getDocs,
             runTransaction,
             writeBatch,
-            Timestamp
+            Timestamp,
+            arrayUnion,
+            serverTimestamp,
+            updateDoc
         } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
         
         // --- Your web app's Firebase configuration ---
@@ -358,7 +428,10 @@
             let state = {
                 currentUser: null, 
                 userData: null, 
-                unsubscribe: null,
+                unsubscribeUser: null,
+                unsubscribeSales: null,
+                unsubscribeEscrow: null,
+                activeEscrowTxId: null, // To manage PIN flow
             };
             
             // DOM Elements
@@ -392,6 +465,18 @@
             const backToWalletBtn = document.getElementById('back-to-wallet-btn');
             const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
             const paymentMethodsContainer = document.getElementById('payment-methods');
+            const businessPaymentButton = document.getElementById('business-payment-button');
+            const createSaleForm = document.getElementById('create-sale-form');
+            const activeSalesList = document.getElementById('active-sales-list');
+            const myEscrowList = document.getElementById('my-escrow-list');
+            const pinForm = document.getElementById('pin-form');
+            const pinTitle = document.getElementById('pin-title');
+            const pinSubtitle = document.getElementById('pin-subtitle');
+            const pinInput = document.getElementById('pin-input');
+            const pinSubmitButton = document.getElementById('pin-submit-button');
+            const changePinButton = document.getElementById('change-pin-button');
+            const backToBusinessBtns = document.querySelectorAll('.back-to-business-btn');
+            const orderDetailsContent = document.getElementById('order-details-content');
 
 
             let currentPage = 'auth-page';
@@ -422,8 +507,8 @@
                 }
             }
 
-            async function updateTransactionList() {
-                if(!state.currentUser) return;
+            function updateTransactionList() {
+                if(!state.currentUser || !state.userData) return;
                 
                 const user = state.userData;
                 transactionList.innerHTML = '';
@@ -433,7 +518,6 @@
                      return;
                 }
                 
-                // Transactions are now sorted directly from the user data array
                 const transactions = [...user.transactions].sort((a, b) => b.date.toMillis() - a.date.toMillis());
 
                 transactions.forEach(tx => {
@@ -478,6 +562,27 @@
                             details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
                             amountString = `-$${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                             break;
+                        case 'escrow_payment':
+                             iconType = 'shopping-cart';
+                            iconColor = 'text-red-500';
+                            title = 'Escrow Payment';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">For: ${tx.details}</p>`;
+                            amountString = `- ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'escrow_release':
+                             iconType = 'landmark';
+                            iconColor = 'text-green-500';
+                            title = 'Escrow Release';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.details}</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
+                        case 'escrow_refund':
+                             iconType = 'refresh-cw';
+                            iconColor = 'text-blue-500';
+                            title = 'Escrow Refund';
+                            details = `<p class="text-sm text-gray-500 dark:text-gray-400">For: ${tx.details}</p>`;
+                            amountString = `+ ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                            break;
                     }
                     
                     const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
@@ -496,14 +601,20 @@
                 setTimeout(() => toast.classList.remove('show'), 3000);
             }
 
+            function cleanupListeners() {
+                if (state.unsubscribeUser) state.unsubscribeUser();
+                if (state.unsubscribeSales) state.unsubscribeSales();
+                if (state.unsubscribeEscrow) state.unsubscribeEscrow();
+            }
+
             onAuthStateChanged(auth, async (user) => {
-                if (state.unsubscribe) state.unsubscribe();
+                cleanupListeners();
 
                 if (user) {
                     state.currentUser = user;
                     const userRef = doc(db, 'users', user.uid);
                     
-                    state.unsubscribe = onSnapshot(userRef, (docSnap) => {
+                    state.unsubscribeUser = onSnapshot(userRef, (docSnap) => {
                         if (docSnap.exists()) {
                             state.userData = docSnap.data();
                             updateUI();
@@ -514,19 +625,10 @@
                                 balance: 1000,
                                 cashBalance: 100,
                                 address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+                                pin: null,
                                 transactions: [
-                                    {
-                                        type: 'deposit',
-                                        amount: 100,
-                                        method: 'Welcome Bonus',
-                                        date: Timestamp.now()
-                                    },
-                                    {
-                                        type: 'receive',
-                                        amount: 1000,
-                                        from: 'Spay Bonus',
-                                        date: Timestamp.now()
-                                    }
+                                    { type: 'deposit', amount: 100, method: 'Welcome Bonus', date: Timestamp.now() },
+                                    { type: 'receive', amount: 1000, from: 'Spay Bonus', date: Timestamp.now() }
                                 ]
                             };
                             setDoc(userRef, newUser).then(() => {
@@ -534,6 +636,9 @@
                             });
                         }
                     });
+
+                    listenToSales();
+                    listenToMyEscrowTransactions();
                     showPage('main-page');
                 } else {
                     state.currentUser = null;
@@ -602,12 +707,10 @@
                 const amount = parseFloat(amountInput.value);
 
                 if (isNaN(amount) || amount <= 0) {
-                    showToast('Please enter a valid amount to add.', 'error');
-                    return;
+                    showToast('Please enter a valid amount to add.', 'error'); return;
                 }
                  if (amount <= TRANSACTION_FEE) {
-                    showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error');
-                    return;
+                    showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error'); return;
                 }
                 
                 paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
@@ -628,8 +731,7 @@
                 const amount = parseFloat(amountText);
 
                 if (isNaN(amount) || amount <= 0) {
-                    showToast('Invalid payment amount detected.', 'error');
-                    return;
+                    showToast('Invalid payment amount detected.', 'error'); return;
                 }
 
                 const netAmount = amount - TRANSACTION_FEE;
@@ -637,21 +739,12 @@
                 const userRef = doc(db, 'users', state.currentUser.uid);
                 
                 try {
-                    await runTransaction(db, async (transaction) => {
-                        const userDoc = await transaction.get(userRef);
-                        if (!userDoc.exists()) throw "Document does not exist!";
-
-                        const newCashBalance = userDoc.data().cashBalance + netAmount;
-                        const newTransactions = [
-                            ...userDoc.data().transactions,
+                    await updateDoc(userRef, {
+                        cashBalance: state.userData.cashBalance + netAmount,
+                        transactions: arrayUnion(
                             { type: 'deposit', amount: netAmount, method: selectedMethod, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For cash deposit`, date: Timestamp.now() }
-                        ];
-                        
-                        transaction.update(userRef, { 
-                            cashBalance: newCashBalance,
-                            transactions: newTransactions 
-                        });
+                        )
                     });
 
                     showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
@@ -679,24 +772,18 @@
                 }
 
                 try {
-                    await runTransaction(db, async (transaction) => {
-                        const userDoc = await transaction.get(userRef);
-                        if (!userDoc.exists()) throw "Document does not exist!";
-
-                        const newCashBalance = userDoc.data().cashBalance - cashAmount - TRANSACTION_FEE;
-                        const newBalance = userDoc.data().balance + cashAmount;
-                        const newTransactions = [
-                            ...userDoc.data().transactions,
+                    const newCashBalance = state.userData.cashBalance - cashAmount - TRANSACTION_FEE;
+                    const newBalance = state.userData.balance + cashAmount;
+                    
+                    await updateDoc(userRef, { 
+                        cashBalance: newCashBalance, 
+                        balance: newBalance,
+                        transactions: arrayUnion(
                             { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For cash to token conversion`, date: Timestamp.now() }
-                        ];
-
-                        transaction.update(userRef, { 
-                            cashBalance: newCashBalance, 
-                            balance: newBalance,
-                            transactions: newTransactions
-                        });
+                        )
                     });
+
                     showToast('Conversion successful!', 'success');
                     cashAmountInput.value = '';
                 } catch (error) {
@@ -723,24 +810,18 @@
                 }
 
                 try {
-                    await runTransaction(db, async (transaction) => {
-                        const userDoc = await transaction.get(userRef);
-                        if (!userDoc.exists()) throw "Document does not exist!";
-
-                        const newBalance = userDoc.data().balance - tokenAmount;
-                        const newCashBalance = userDoc.data().cashBalance + tokenAmount - TRANSACTION_FEE;
-                        const newTransactions = [
-                             ...userDoc.data().transactions,
+                    const newBalance = state.userData.balance - tokenAmount;
+                    const newCashBalance = state.userData.cashBalance + tokenAmount - TRANSACTION_FEE;
+                    
+                    await updateDoc(userRef, { 
+                        balance: newBalance, 
+                        cashBalance: newCashBalance,
+                        transactions: arrayUnion(
                             { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() },
                             { type: 'fee', amount: TRANSACTION_FEE, details: `For token to cash conversion`, date: Timestamp.now() }
-                        ];
-
-                        transaction.update(userRef, { 
-                            balance: newBalance, 
-                            cashBalance: newCashBalance,
-                            transactions: newTransactions
-                        });
+                        )
                     });
+                    
                     showToast('Conversion successful!', 'success');
                     tokenAmountInput.value = '';
                 } catch (error) {
@@ -790,25 +871,19 @@
                        
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
                         
-                        const newSenderTransactions = [
-                             ...senderDoc.data().transactions,
-                            { type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
-                            { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
-                        ];
-
-                        const newRecipientTransactions = [
-                            ...recipientDocTx.data().transactions,
-                            { type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
-                        ];
-
                         transaction.update(senderRef, { 
                             balance: newSenderBalance, 
                             cashBalance: newSenderCashBalance,
-                            transactions: newSenderTransactions 
+                            transactions: arrayUnion(
+                                { type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
+                                { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
+                            ) 
                         });
                         transaction.update(recipientRef, { 
                             balance: newRecipientBalance,
-                            transactions: newRecipientTransactions
+                            transactions: arrayUnion(
+                                { type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now() }
+                            )
                         });
                     });
                     showToast(`Successfully sent ${sendAmount} TKN.`, 'success');
@@ -834,6 +909,353 @@
                 }
                 document.body.removeChild(textArea);
             });
+
+            // --- BUSINESS PAYMENT LOGIC ---
+            businessPaymentButton.addEventListener('click', () => showPage('business-page'));
+            backToBusinessBtns.forEach(btn => btn.addEventListener('click', () => showPage('business-page')));
+            
+            createSaleForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const details = document.getElementById('product-details').value;
+                const price = parseFloat(document.getElementById('product-price').value);
+
+                if (!details || isNaN(price) || price <= 0) {
+                    showToast('Please fill out the sale details correctly.', 'error'); return;
+                }
+
+                try {
+                    const escrowCol = collection(db, 'escrow');
+                    await addDoc(escrowCol, {
+                        sellerId: state.currentUser.uid,
+                        sellerEmail: state.currentUser.email,
+                        buyerId: null,
+                        buyerEmail: null,
+                        productDetails: details,
+                        price: price,
+                        status: 'awaiting_buyer',
+                        createdAt: serverTimestamp()
+                    });
+                    showToast('Sale created successfully!', 'success');
+                    createSaleForm.reset();
+                } catch (error) {
+                     showToast(`Error creating sale: ${error.message}`, 'error');
+                }
+            });
+
+            function listenToSales() {
+                const q = query(collection(db, 'escrow'), where('status', '==', 'awaiting_buyer'));
+                state.unsubscribeSales = onSnapshot(q, (snapshot) => {
+                    if (snapshot.empty) {
+                        activeSalesList.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">No items currently for sale.</p>`;
+                        return;
+                    }
+                    activeSalesList.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const sale = doc.data();
+                        const item = document.createElement('div');
+                        item.className = 'p-4 bg-gray-100 dark:bg-gray-700 rounded-lg flex justify-between items-center';
+                        item.innerHTML = `
+                            <div>
+                                <p class="font-semibold">${sale.productDetails}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Seller: ${sale.sellerEmail}</p>
+                            </div>
+                            <button data-id="${doc.id}" data-price="${sale.price}" class="buy-btn bg-green-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-green-600 transition">
+                                ${sale.price} TKN
+                            </button>
+                        `;
+                        // Don't show buy button for own items
+                        if (sale.sellerId === state.currentUser.uid) {
+                            item.querySelector('.buy-btn').style.display = 'none';
+                        }
+                        activeSalesList.appendChild(item);
+                    });
+                });
+            }
+
+            activeSalesList.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('buy-btn')) {
+                    const txId = e.target.dataset.id;
+                    const price = parseFloat(e.target.dataset.price);
+
+                    if (state.userData.balance < price) {
+                        showToast('Insufficient token balance to buy this item.', 'error');
+                        return;
+                    }
+                    
+                    state.activeEscrowTxId = txId; // Store the transaction ID for the PIN flow
+                    
+                    // PIN Check
+                    if (state.userData.pin) {
+                        pinTitle.textContent = 'Enter Your Security PIN';
+                        pinSubtitle.textContent = `To authorize the payment of ${price} TKN.`;
+                        pinSubmitButton.textContent = 'Confirm Payment';
+                    } else {
+                        pinTitle.textContent = 'Set Your Security PIN';
+                        pinSubtitle.textContent = 'This 4-digit PIN will be used for all future payments.';
+                        pinSubmitButton.textContent = 'Set PIN and Pay';
+                    }
+                    changePinButton.classList.toggle('hidden', !state.userData.pin);
+                    pinInput.value = '';
+                    showPage('pin-page');
+                }
+            });
+
+            pinForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const pin = pinInput.value;
+                if (!/^\d{4}$/.test(pin)) {
+                    showToast('PIN must be 4 digits.', 'error'); return;
+                }
+
+                if (state.userData.pin) { // User is confirming an existing PIN
+                    if (state.userData.pin === pin) {
+                        await processPurchase();
+                    } else {
+                        showToast('Incorrect PIN.', 'error');
+                    }
+                } else { // User is setting a new PIN
+                    const userRef = doc(db, 'users', state.currentUser.uid);
+                    await updateDoc(userRef, { pin: pin });
+                    showToast('PIN set successfully! Proceeding with payment.', 'success');
+                    await processPurchase();
+                }
+            });
+
+            async function processPurchase() {
+                if (!state.activeEscrowTxId) return;
+
+                const txId = state.activeEscrowTxId;
+                const buyerRef = doc(db, 'users', state.currentUser.uid);
+                const escrowRef = doc(db, 'escrow', txId);
+
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const buyerDoc = await transaction.get(buyerRef);
+                        const escrowDoc = await transaction.get(escrowRef);
+
+                        if (!buyerDoc.exists() || !escrowDoc.exists()) throw new Error("Data not found.");
+
+                        const price = escrowDoc.data().price;
+                        if (buyerDoc.data().balance < price) throw new Error("Insufficient token balance.");
+
+                        // Update buyer
+                        transaction.update(buyerRef, {
+                            balance: buyerDoc.data().balance - price,
+                            transactions: arrayUnion({
+                                type: 'escrow_payment',
+                                amount: price,
+                                details: escrowDoc.data().productDetails,
+                                date: Timestamp.now()
+                            })
+                        });
+
+                        // Update escrow document
+                        transaction.update(escrowRef, {
+                            status: 'pending_delivery',
+                            buyerId: state.currentUser.uid,
+                            buyerEmail: state.currentUser.email
+                        });
+                    });
+                    showToast('Payment successful! Tokens are held in escrow.', 'success');
+                    state.activeEscrowTxId = null;
+                    pinInput.value = '';
+                    showPage('business-page');
+
+                } catch (error) {
+                    showToast(`Payment failed: ${error.message}`, 'error');
+                    console.error("Purchase failed:", error);
+                }
+            }
+
+            function listenToMyEscrowTransactions() {
+                const escrowCol = collection(db, 'escrow');
+                const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
+                const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
+
+                const unsubSeller = onSnapshot(qAsSeller, (snapshot) => renderMyEscrowList());
+                const unsubBuyer = onSnapshot(qAsBuyer, (snapshot) => renderMyEscrowList());
+
+                state.unsubscribeEscrow = () => { unsubSeller(); unsubBuyer(); };
+            }
+
+            async function renderMyEscrowList() {
+                 if(!state.currentUser) return;
+                const escrowCol = collection(db, 'escrow');
+                const qAsSeller = query(escrowCol, where('sellerId', '==', state.currentUser.uid));
+                const qAsBuyer = query(escrowCol, where('buyerId', '==', state.currentUser.uid));
+
+                const [sellerSnapshot, buyerSnapshot] = await Promise.all([getDocs(qAsSeller), getDocs(qAsBuyer)]);
+                
+                const allTxs = [];
+                sellerSnapshot.forEach(doc => allTxs.push({id: doc.id, ...doc.data()}));
+                buyerSnapshot.forEach(doc => allTxs.push({id: doc.id, ...doc.data()}));
+
+                const uniqueTxs = Array.from(new Map(allTxs.map(item => [item.id, item])).values())
+                                    .sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+                if(uniqueTxs.length === 0) {
+                     myEscrowList.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">No active sales or purchases.</p>`;
+                     return;
+                }
+
+                myEscrowList.innerHTML = '';
+                uniqueTxs.forEach(tx => {
+                    const item = document.createElement('div');
+                    item.className = 'p-4 bg-gray-100 dark:bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600';
+                    item.dataset.id = tx.id;
+                    item.classList.add('escrow-item-details');
+
+                    const isSeller = tx.sellerId === state.currentUser.uid;
+                    let role = isSeller ? 'Seller' : 'Buyer';
+                    let statusText = '';
+                    let statusColor = 'text-gray-500';
+
+                    switch(tx.status) {
+                        case 'awaiting_buyer': statusText = 'Awaiting Buyer'; statusColor = 'text-blue-500'; break;
+                        case 'pending_delivery': statusText = isSeller ? 'Tokens in Escrow. Ship item.' : 'Payment Sent. Awaiting item.'; statusColor = 'text-yellow-500'; break;
+                        case 'completed': statusText = 'Completed'; statusColor = 'text-green-500'; break;
+                        case 'return_initiated': statusText = isSeller ? 'Return Initiated. Await item.' : 'Return requested. Send item back.'; statusColor = 'text-orange-500'; break;
+                        case 'refunded': statusText = 'Refunded'; statusColor = 'text-purple-500'; break;
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">${tx.productDetails}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Role: ${role} | Price: ${tx.price} TKN</p>
+                            </div>
+                            <p class="font-bold text-sm ${statusColor}">${statusText}</p>
+                        </div>
+                    `;
+                    myEscrowList.appendChild(item);
+                });
+            }
+            
+            myEscrowList.addEventListener('click', async e => {
+                const item = e.target.closest('.escrow-item-details');
+                if(!item) return;
+
+                const txId = item.dataset.id;
+                const escrowRef = doc(db, 'escrow', txId);
+                const docSnap = await getDoc(escrowRef);
+                if(!docSnap.exists()) return;
+
+                const tx = docSnap.data();
+                const isSeller = tx.sellerId === state.currentUser.uid;
+
+                let content = `
+                    <p><strong>Product:</strong> ${tx.productDetails}</p>
+                    <p><strong>Price:</strong> ${tx.price} TKN</p>
+                    <p><strong>Seller:</strong> ${tx.sellerEmail}</p>
+                    <p><strong>Buyer:</strong> ${tx.buyerEmail || 'N/A'}</p>
+                    <p><strong>Status:</strong> <span class="font-semibold">${tx.status.replace('_', ' ')}</span></p>
+                    <hr class="my-4 border-gray-300 dark:border-gray-600">
+                `;
+
+                // Buyer actions
+                if (!isSeller && tx.status === 'pending_delivery') {
+                    content += `
+                        <h3 class="font-semibold text-lg mb-2">Finalize Payment</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm if you have received the item in good condition.</p>
+                        <div class="flex gap-4">
+                            <button data-id="${txId}" class="w-full finalize-btn bg-green-500 text-white py-2 rounded-lg hover:bg-green-600">Confirm Receipt</button>
+                            <button data-id="${txId}" class="w-full return-btn bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">No (Return Item)</button>
+                        </div>
+                    `;
+                }
+
+                // Seller actions
+                if (isSeller && tx.status === 'return_initiated') {
+                     content += `
+                        <h3 class="font-semibold text-lg mb-2">Confirm Return</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Confirm you have received the returned item to refund the buyer.</p>
+                        <button data-id="${txId}" class="w-full confirm-return-btn bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600">Return Received</button>
+                    `;
+                }
+                
+                orderDetailsContent.innerHTML = content;
+                showPage('order-details-page');
+            });
+            
+            orderDetailsContent.addEventListener('click', async e => {
+                const txId = e.target.dataset.id;
+                if(!txId) return;
+
+                if (e.target.classList.contains('finalize-btn')) {
+                    await finalizePurchase(txId);
+                } else if (e.target.classList.contains('return-btn')) {
+                    await initiateReturn(txId);
+                } else if (e.target.classList.contains('confirm-return-btn')) {
+                    await confirmReturn(txId);
+                }
+            });
+
+            async function finalizePurchase(txId) {
+                const escrowRef = doc(db, 'escrow', txId);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const escrowDoc = await transaction.get(escrowRef);
+                        if (!escrowDoc.exists()) throw new Error("Transaction not found.");
+                        
+                        const data = escrowDoc.data();
+                        const sellerRef = doc(db, 'users', data.sellerId);
+                        const sellerDoc = await transaction.get(sellerRef);
+                        if (!sellerDoc.exists()) throw new Error("Seller not found.");
+
+                        // Release funds to seller
+                        transaction.update(sellerRef, {
+                            balance: sellerDoc.data().balance + data.price,
+                            transactions: arrayUnion({ type: 'escrow_release', amount: data.price, details: data.productDetails, date: Timestamp.now() })
+                        });
+                        
+                        // Mark escrow as complete
+                        transaction.update(escrowRef, { status: 'completed' });
+                    });
+                    showToast('Payment finalized! Seller has been paid.', 'success');
+                    showPage('business-page');
+                } catch (error) {
+                    showToast(`Finalization failed: ${error.message}`, 'error');
+                }
+            }
+
+            async function initiateReturn(txId) {
+                try {
+                    const escrowRef = doc(db, 'escrow', txId);
+                    await updateDoc(escrowRef, { status: 'return_initiated' });
+                    showToast('Return process initiated.', 'success');
+                    showPage('business-page');
+                } catch(error) {
+                    showToast(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async function confirmReturn(txId) {
+                 const escrowRef = doc(db, 'escrow', txId);
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const escrowDoc = await transaction.get(escrowRef);
+                        if (!escrowDoc.exists()) throw new Error("Transaction not found.");
+                        
+                        const data = escrowDoc.data();
+                        const buyerRef = doc(db, 'users', data.buyerId);
+                        const buyerDoc = await transaction.get(buyerRef);
+                        if (!buyerDoc.exists()) throw new Error("Buyer not found.");
+
+                        // Refund buyer
+                        transaction.update(buyerRef, {
+                            balance: buyerDoc.data().balance + data.price,
+                            transactions: arrayUnion({ type: 'escrow_refund', amount: data.price, details: data.productDetails, date: Timestamp.now() })
+                        });
+                        
+                        // Mark escrow as refunded
+                        transaction.update(escrowRef, { status: 'refunded' });
+                    });
+                    showToast('Return confirmed. Buyer has been refunded.', 'success');
+                    showPage('business-page');
+                } catch (error) {
+                    showToast(`Refund failed: ${error.message}`, 'error');
+                }
+            }
             
             // PWA Service Worker
             if ('serviceWorker' in navigator) {
