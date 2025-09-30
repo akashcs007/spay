@@ -303,26 +303,6 @@
                 <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Deposit</button>
            </footer>
        </div>
-
-        <!-- CORRECT FIRESTORE RULES -->
-        <div id="firestore-rules" class="hidden">
-        <pre><code>
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can only read and write their own user document
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Users can only read and write transactions within their own document
-      match /transactions/{transactionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-  }
-}
-        </code></pre>
-        </div>
         
     </div>
     
@@ -671,13 +651,18 @@ service cloud.firestore {
                         transaction.update(userRef, { cashBalance: newCashBalance });
 
                         const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                        await addDoc(transactionsCol, {
+                        
+                        // Create new doc refs for the transactions
+                        const depositTxRef = doc(transactionsCol);
+                        const feeTxRef = doc(transactionsCol);
+
+                        transaction.set(depositTxRef, {
                             type: 'deposit',
                             amount: netAmount,
                             method: selectedMethod,
                             date: Timestamp.now()
                         });
-                        await addDoc(transactionsCol, {
+                        transaction.set(feeTxRef, {
                             type: 'fee',
                             amount: TRANSACTION_FEE,
                             details: `For cash deposit`,
@@ -719,14 +704,17 @@ service cloud.firestore {
                         transaction.update(userRef, { cashBalance: newCashBalance, balance: newBalance });
                         
                         const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                        await addDoc(transactionsCol, {
+                        const conversionTxRef = doc(transactionsCol);
+                        const feeTxRef = doc(transactionsCol);
+
+                        transaction.set(conversionTxRef, {
                             type: 'conversion',
                             title: 'Cash to Token',
                             details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
                             amountString: `+${cashAmount.toFixed(2)} TKN`,
                             date: Timestamp.now()
                         });
-                        await addDoc(transactionsCol, {
+                        transaction.set(feeTxRef, {
                             type: 'fee',
                             amount: TRANSACTION_FEE,
                             details: `For cash to token conversion`,
@@ -768,14 +756,17 @@ service cloud.firestore {
                         transaction.update(userRef, { balance: newBalance, cashBalance: newCashBalance });
                         
                         const transactionsCol = collection(db, 'users', state.currentUser.uid, 'transactions');
-                        await addDoc(transactionsCol, {
+                        const conversionTxRef = doc(transactionsCol);
+                        const feeTxRef = doc(transactionsCol);
+
+                        transaction.set(conversionTxRef, {
                             type: 'conversion',
                             title: 'Token to Cash',
                             details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
                             amountString: `+$${tokenAmount.toFixed(2)}`,
                             date: Timestamp.now()
                         });
-                        await addDoc(transactionsCol, {
+                        transaction.set(feeTxRef, {
                             type: 'fee',
                             amount: TRANSACTION_FEE,
                             details: `For token to cash conversion`,
@@ -836,13 +827,17 @@ service cloud.firestore {
                         const senderTxCol = collection(db, 'users', senderDoc.id, 'transactions');
                         const recipientTxCol = collection(db, 'users', recipientDoc.id, 'transactions');
                         
-                        await addDoc(senderTxCol, {
+                        const senderSendTxRef = doc(senderTxCol);
+                        const senderFeeTxRef = doc(senderTxCol);
+                        const recipientTxRef = doc(recipientTxCol);
+                        
+                        transaction.set(senderSendTxRef, {
                             type: 'send', amount: sendAmount, to: sendAddress, date: Timestamp.now()
                         });
-                        await addDoc(senderTxCol, {
+                        transaction.set(senderFeeTxRef, {
                             type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now()
                         });
-                        await addDoc(recipientTxCol, {
+                        transaction.set(recipientTxRef, {
                             type: 'receive', amount: sendAmount, from: senderDoc.data().address, date: Timestamp.now()
                         });
                     });
@@ -878,3 +873,4 @@ service cloud.firestore {
     </script>
 </body>
 </html>
+
