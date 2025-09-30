@@ -149,9 +149,12 @@
                 </div>
             </header>
             <main class="p-6 flex-grow flex flex-col justify-center items-center text-center">
-                 <p class="text-gray-500 dark:text-gray-400 font-medium">Total Balance</p>
-                <div class="my-4 text-5xl font-extrabold gradient-text">
+                <p class="text-gray-500 dark:text-gray-400 font-medium">Total Balance</p>
+                <div class="my-2 text-5xl font-extrabold gradient-text">
                     <span id="main-balance">0.00</span> TKN
+                </div>
+                <div class="text-xl text-gray-600 dark:text-gray-300 font-semibold">
+                    $<span id="main-cash-balance">0.00</span> USD
                 </div>
                 <div class="grid grid-cols-2 gap-6 w-full max-w-xs mt-10">
                     <button id="send-button" class="flex flex-col items-center justify-center bg-indigo-600 text-white p-6 rounded-2xl shadow-lg hover:bg-indigo-700 transition transform hover:scale-105 hover:-translate-y-1">
@@ -177,8 +180,11 @@
             </header>
             <main class="p-6 flex-grow overflow-y-auto">
                 <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-8 rounded-2xl mb-8 text-center shadow-xl">
-                    <p class="text-sm opacity-80">Remaining Tokens</p>
+                    <p class="text-sm opacity-80">Token Balance</p>
                     <p class="text-5xl font-extrabold mt-2"><span id="wallet-balance">0.00</span> TKN</p>
+                    <hr class="my-4 border-white/20">
+                    <p class="text-sm opacity-80">Cash Balance</p>
+                    <p class="text-3xl font-bold mt-1">$<span id="wallet-cash-balance">0.00</span> USD</p>
                 </div>
                 
                  <div class="grid grid-cols-1 gap-6 mb-8">
@@ -190,10 +196,10 @@
                         </div>
                     </form>
                     <form id="cash-to-token-form" class="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
-                        <h3 class="font-semibold mb-3">Buy Tokens with Cash</h3>
+                        <h3 class="font-semibold mb-3">Convert Cash to Token</h3>
                         <div class="flex items-center">
                             <input type="number" id="cash-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border-gray-300 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-600 dark:border-gray-500 transition" step="0.01" min="0">
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600 transition">Buy</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600 transition">Convert</button>
                         </div>
                     </form>
                 </div>
@@ -250,32 +256,6 @@
             </main>
         </div>
         
-        <!-- Payment Gateway Page -->
-        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
-             <header class="flex items-center mb-8">
-                <button id="back-to-wallet-btn" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
-                    <i data-lucide="arrow-left"></i>
-                </button>
-                <h1 class="text-2xl font-bold">Secure Payment</h1>
-            </header>
-            <main class="flex-grow">
-                 <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
-                    <p class="text-gray-500 dark:text-gray-400">You are buying</p>
-                    <p class="text-3xl font-bold my-2"><span id="payment-token-amount">0.00</span> TKN</p>
-                    <p class="text-lg font-semibold">For <span id="payment-cash-amount">$0.00</span></p>
-                </div>
-
-                <div class="space-y-4">
-                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">UPI</button>
-                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Credit/Debit Card</button>
-                    <button class="w-full text-left p-4 border border-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Net Banking</button>
-                </div>
-            </main>
-            <footer class="mt-8">
-                 <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Payment</button>
-            </footer>
-        </div>
-
     </div>
     
     <!-- Firebase SDK -->
@@ -306,8 +286,7 @@
 
             let state = {
                 currentUser: null,
-                users: {},
-                paymentAmount: 0, // To hold amount during payment flow
+                users: {}
             };
 
             function saveUsersToLocalStorage() {
@@ -322,8 +301,11 @@
                     // Add default user if none exist
                     state.users = {
                         "test@example.com": {
-                            password: "password123", balance: 1350.75,
-                            address: '0x1a2b3c4d5e6f7g8h9i0j', transactions: [{ type: 'receive', amount: 1500, from: 'Initial Deposit', date: '2023-10-26' }]
+                            password: "password123", 
+                            balance: 1350.75, 
+                            cashBalance: 500.00,
+                            address: '0x1a2b3c4d5e6f7g8h9i0j', 
+                            transactions: [{ type: 'receive', amount: 1500, from: 'Initial Deposit', date: '2023-10-26' }]
                         }
                     };
                 }
@@ -347,20 +329,19 @@
             const logoutButton = document.getElementById('logout-button');
             const userEmailDisplay = document.getElementById('user-email-display');
             const mainBalanceEl = document.getElementById('main-balance');
+            const mainCashBalanceEl = document.getElementById('main-cash-balance');
             const walletBalanceEl = document.getElementById('wallet-balance');
+            const walletCashBalanceEl = document.getElementById('wallet-cash-balance');
             const transactionList = document.getElementById('transaction-list');
             const toast = document.getElementById('toast');
             const toastMessage = document.getElementById('toast-message');
             const cashToTokenForm = document.getElementById('cash-to-token-form');
+            const tokenToCashForm = document.getElementById('token-to-cash-form');
             const sendButton = document.getElementById('send-button');
             const receiveButton = document.getElementById('receive-button');
             const userAddressEl = document.getElementById('user-address');
             const copyAddressBtn = document.getElementById('copy-address-btn');
             const sendForm = document.getElementById('send-form');
-            const backToWalletBtn = document.getElementById('back-to-wallet-btn');
-            const paymentTokenAmount = document.getElementById('payment-token-amount');
-            const paymentCashAmount = document.getElementById('payment-cash-amount');
-            const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
             const authTitle = document.getElementById('auth-title');
             const authSubtitle = document.getElementById('auth-subtitle');
 
@@ -378,10 +359,15 @@
             function updateUI() {
                 if (state.currentUser) {
                     const user = state.users[state.currentUser];
-                    if (!user) return; // Exit if user data not loaded yet
+                    if (!user) return; 
                     const formattedBalance = user.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    const formattedCashBalance = user.cashBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    
                     mainBalanceEl.textContent = formattedBalance;
+                    mainCashBalanceEl.textContent = formattedCashBalance;
                     walletBalanceEl.textContent = formattedBalance;
+                    walletCashBalanceEl.textContent = formattedCashBalance;
+
                     userEmailDisplay.textContent = state.currentUser;
                     userAddressEl.textContent = user.address;
                     updateTransactionList();
@@ -402,10 +388,27 @@
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl';
                     const isSend = tx.type === 'send';
-                    const iconColor = isSend ? 'text-red-500' : 'text-green-500';
-                    const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${isSend ? 'arrow-up-right' : 'arrow-down-left'}" class="h-6 w-6 ${iconColor}"></i></div>`;
-                    const details = isSend ? `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>` : `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
-                    li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${isSend ? 'Sent Tokens' : 'Received Tokens'}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${isSend ? '-' : '+'} ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN</p><p class="text-xs text-gray-500 dark:text-gray-400">${tx.date}</p></div>`;
+                    const isConversion = tx.type === 'conversion';
+                    let iconType, iconColor, title, details, amountPrefix, amountString;
+
+                    if (isConversion) {
+                        iconType = 'repeat';
+                        iconColor = 'text-blue-500';
+                        title = tx.title;
+                        details = `<p class="text-sm text-gray-500 dark:text-gray-400">${tx.details}</p>`;
+                        amountString = tx.amountString;
+                    } else {
+                        iconType = isSend ? 'arrow-up-right' : 'arrow-down-left';
+                        iconColor = isSend ? 'text-red-500' : 'text-green-500';
+                        title = isSend ? 'Sent Tokens' : 'Received Tokens';
+                        details = isSend ? `<p class="text-sm text-gray-500 dark:text-gray-400">To: ${tx.to.substring(0,10)}...</p>` : `<p class="text-sm text-gray-500 dark:text-gray-400">From: ${tx.from.substring(0,10)}...</p>`;
+                        amountPrefix = isSend ? '-' : '+';
+                        amountString = `${amountPrefix} ${tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TKN`;
+                    }
+                    
+                    const icon = `<div class="p-2 bg-white dark:bg-gray-800 rounded-full shadow-sm"><i data-lucide="${iconType}" class="h-6 w-6 ${iconColor}"></i></div>`;
+                    
+                    li.innerHTML = `<div class="flex items-center space-x-4">${icon}<div><p class="font-semibold">${title}</p>${details}</div></div><div class="text-right"><p class="font-bold ${iconColor}">${amountString}</p><p class="text-xs text-gray-500 dark:text-gray-400">${tx.date}</p></div>`;
                     transactionList.appendChild(li);
                 });
                 lucide.createIcons();
@@ -445,6 +448,7 @@
                     if (!state.users[email]) {
                         state.users[email] = {
                             balance: 0,
+                            cashBalance: 0,
                             address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
                             transactions: []
                         };
@@ -517,6 +521,7 @@
                     state.users[identifier] = {
                         password: password,
                         balance: 0,
+                        cashBalance: 0,
                         address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
                         transactions: []
                     };
@@ -537,38 +542,66 @@
                 e.preventDefault();
                 const cashAmountInput = document.getElementById('cash-amount');
                 const cashAmount = parseFloat(cashAmountInput.value);
+                const user = state.users[state.currentUser];
 
                 if (isNaN(cashAmount) || cashAmount <= 0) {
                     showToast('Please enter a valid amount.', 'error');
                     return;
                 }
                 
-                state.paymentAmount = cashAmount; // Assuming 1-to-1 conversion for simplicity
-                paymentTokenAmount.textContent = cashAmount.toFixed(2);
-                paymentCashAmount.textContent = `$${cashAmount.toFixed(2)}`;
-                
-                showPage('payment-gateway-page');
+                if (user.cashBalance < cashAmount) {
+                    showToast('Insufficient cash balance.', 'error');
+                    return;
+                }
+
+                user.cashBalance -= cashAmount;
+                user.balance += cashAmount; // Assuming 1:1 conversion
+
+                user.transactions.push({
+                    type: 'conversion',
+                    title: 'Cash to Token',
+                    details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`,
+                    amountString: `+${cashAmount.toFixed(2)} TKN`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+
+                saveUsersToLocalStorage();
+                updateUI();
+                showToast('Conversion successful!', 'success');
                 cashAmountInput.value = '';
             });
 
-            confirmPaymentBtn.addEventListener('click', () => {
+             tokenToCashForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const tokenAmountInput = document.getElementById('token-amount');
+                const tokenAmount = parseFloat(tokenAmountInput.value);
                 const user = state.users[state.currentUser];
-                if (user && state.paymentAmount > 0) {
-                    user.balance += state.paymentAmount;
-                    user.transactions.push({
-                        type: 'receive',
-                        amount: state.paymentAmount,
-                        from: 'Cash Deposit',
-                        date: new Date().toISOString().split('T')[0]
-                    });
-                    saveUsersToLocalStorage();
-                    showToast(`${state.paymentAmount.toFixed(2)} TKN purchased successfully!`, 'success');
-                    state.paymentAmount = 0;
-                    updateUI();
-                    showPage('main-page');
-                } else {
-                    showToast('Payment processing error.', 'error');
+
+                if (isNaN(tokenAmount) || tokenAmount <= 0) {
+                    showToast('Please enter a valid amount.', 'error');
+                    return;
                 }
+                
+                if (user.balance < tokenAmount) {
+                    showToast('Insufficient token balance.', 'error');
+                    return;
+                }
+
+                user.balance -= tokenAmount;
+                user.cashBalance += tokenAmount; // Assuming 1:1 conversion
+
+                user.transactions.push({
+                    type: 'conversion',
+                    title: 'Token to Cash',
+                    details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`,
+                    amountString: `+$${tokenAmount.toFixed(2)}`,
+                    date: new Date().toISOString().split('T')[0]
+                });
+
+                saveUsersToLocalStorage();
+                updateUI();
+                showToast('Conversion successful!', 'success');
+                tokenAmountInput.value = '';
             });
             
             sendForm.addEventListener('submit', (e) => {
@@ -587,7 +620,6 @@
                     return;
                 }
 
-                // --- MODIFIED LOGIC: Find recipient and transfer tokens ---
                 const recipientEmail = Object.keys(state.users).find(email => state.users[email].address === sendAddress);
                 const recipient = recipientEmail ? state.users[recipientEmail] : null;
 
@@ -596,7 +628,6 @@
                     return;
                 }
 
-                // Deduct from sender
                 sender.balance -= sendAmount;
                 sender.transactions.push({
                     type: 'send',
@@ -605,7 +636,6 @@
                     date: new Date().toISOString().split('T')[0]
                 });
                 
-                // Add to recipient
                 recipient.balance += sendAmount;
                 recipient.transactions.push({
                     type: 'receive',
@@ -623,7 +653,6 @@
 
             copyAddressBtn.addEventListener('click', () => {
                 const address = userAddressEl.textContent;
-                // Use a temporary textarea to copy to clipboard
                 const textArea = document.createElement("textarea");
                 textArea.value = address;
                 document.body.appendChild(textArea);
@@ -637,8 +666,6 @@
                 document.body.removeChild(textArea);
             });
             
-            backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
-
             // --- Initial Load ---
             loadUsersFromLocalStorage();
 
