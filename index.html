@@ -303,6 +303,26 @@
                 <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition transform hover:scale-105 shadow-lg">Confirm Deposit</button>
            </footer>
        </div>
+
+        <!-- CORRECT FIRESTORE RULES -->
+        <div id="firestore-rules" class="hidden">
+        <pre><code>
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Users can only read and write transactions within their own document
+      match /transactions/{transactionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}
+        </code></pre>
+        </div>
         
     </div>
     
