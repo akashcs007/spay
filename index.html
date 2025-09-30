@@ -254,7 +254,6 @@
                         <label for="send-amount-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (TKN)</label>
                         <input type="number" id="send-amount-token" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" step="0.01" min="0">
                     </div>
-                    <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
                     <button type="submit" class="w-full bg-indigo-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-indigo-700 transition transform hover:scale-105 shadow-lg">Send Tokens</button>
                 </form>
 
@@ -267,7 +266,6 @@
                         <label for="send-amount-cash" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount (USD)</label>
                         <input type="number" id="send-amount-cash" required class="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600" step="0.01" min="0">
                     </div>
-                    <p class="text-sm text-center text-gray-500 dark:text-gray-400 mb-4">A transaction fee of $5.00 will be deducted from your cash balance.</p>
                     <button type="submit" class="w-full bg-green-600 text-white py-3 px-4 font-bold rounded-lg hover:bg-green-700 transition transform hover:scale-105 shadow-lg">Send Cash</button>
                 </form>
             </main>
@@ -305,7 +303,6 @@
                 <div class="bg-gray-50 dark:bg-gray-700/50 p-6 rounded-xl mb-6 text-center">
                    <p class="text-gray-500 dark:text-gray-400">Amount to Add</p>
                    <p class="text-3xl font-bold my-2 text-green-600 dark:text-green-400" id="payment-cash-amount">$0.00</p>
-                   <p class="text-sm text-red-500">A $5.00 transaction fee will be applied.</p>
                </div>
                <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
                <div id="payment-methods" class="space-y-3">
@@ -440,8 +437,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-
-            const TRANSACTION_FEE = 5; // $5 Fee
 
             let state = {
                 currentUser: null, 
@@ -747,9 +742,6 @@
                 if (isNaN(amount) || amount <= 0) {
                     showToast('Please enter a valid amount to add.', 'error'); return;
                 }
-                 if (amount <= TRANSACTION_FEE) {
-                    showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error'); return;
-                }
                 
                 paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
                 showPage('payment-gateway-page');
@@ -772,7 +764,6 @@
                     showToast('Invalid payment amount detected.', 'error'); return;
                 }
 
-                const netAmount = amount - TRANSACTION_FEE;
                 const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
                 const userRef = doc(db, 'users', state.currentUser.uid);
                 
@@ -781,11 +772,10 @@
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists()) throw "Document does not exist!";
 
-                        const newCashBalance = userDoc.data().cashBalance + netAmount;
+                        const newCashBalance = userDoc.data().cashBalance + amount;
                         const newTransactions = [
                             ...userDoc.data().transactions,
-                            { type: 'deposit', amount: netAmount, method: selectedMethod, date: Timestamp.now() },
-                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash deposit`, date: Timestamp.now() }
+                            { type: 'deposit', amount: amount, method: selectedMethod, date: Timestamp.now() }
                         ];
                         
                         transaction.update(userRef, { 
@@ -794,7 +784,7 @@
                         });
                     });
 
-                    showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
+                    showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
                     showPage('wallet-page');
                 } catch (error) {
                     console.error("Payment transaction failed: ", error);
@@ -819,16 +809,15 @@
                         const userDoc = await transaction.get(userRef);
                         if (!userDoc.exists()) throw new Error("User data not found.");
 
-                        if (userDoc.data().cashBalance < (cashAmount + TRANSACTION_FEE)) {
-                           throw new Error('Insufficient cash for conversion and fee.');
+                        if (userDoc.data().cashBalance < cashAmount) {
+                           throw new Error('Insufficient cash for conversion.');
                         }
 
-                        const newCashBalance = userDoc.data().cashBalance - cashAmount - TRANSACTION_FEE;
+                        const newCashBalance = userDoc.data().cashBalance - cashAmount;
                         const newBalance = userDoc.data().balance + cashAmount;
                         const newTransactions = [
                             ...userDoc.data().transactions,
-                            { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() },
-                            { type: 'fee', amount: TRANSACTION_FEE, details: `For cash to token conversion`, date: Timestamp.now() }
+                            { type: 'conversion', title: 'Cash to Token', details: `$${cashAmount.toFixed(2)} → ${cashAmount.toFixed(2)} TKN`, amountString: `+${cashAmount.toFixed(2)} TKN`, date: Timestamp.now() }
                         ];
 
                         transaction.update(userRef, { 
@@ -863,16 +852,12 @@
                         if (userDoc.data().balance < tokenAmount) {
                             throw new Error('Insufficient token balance.');
                         }
-                        if (userDoc.data().cashBalance < TRANSACTION_FEE) {
-                            throw new Error('Insufficient cash to pay transaction fee.');
-                        }
 
                         const newBalance = userDoc.data().balance - tokenAmount;
-                        const newCashBalance = userDoc.data().cashBalance + tokenAmount - TRANSACTION_FEE;
+                        const newCashBalance = userDoc.data().cashBalance + tokenAmount;
                         const newTransactions = [
                              ...userDoc.data().transactions,
-                            { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() },
-                            { type: 'fee', amount: TRANSACTION_FEE, details: `For token to cash conversion`, date: Timestamp.now() }
+                            { type: 'conversion', title: 'Token to Cash', details: `${tokenAmount.toFixed(2)} TKN → $${tokenAmount.toFixed(2)}`, amountString: `+$${tokenAmount.toFixed(2)}`, date: Timestamp.now() }
                         ];
 
                         transaction.update(userRef, { 
@@ -938,19 +923,14 @@
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
                         
                         if (senderDoc.data().balance < sendAmount) throw new Error('Insufficient token balance.');
-                        if (senderDoc.data().cashBalance < TRANSACTION_FEE) throw new Error('Insufficient cash to pay transaction fee.');
 
                         const newSenderBalance = senderDoc.data().balance - sendAmount;
-                        const newSenderCashBalance = senderDoc.data().cashBalance - TRANSACTION_FEE;
-                       
                         const newRecipientBalance = recipientDocTx.data().balance + sendAmount;
                         
                         transaction.update(senderRef, { 
-                            balance: newSenderBalance, 
-                            cashBalance: newSenderCashBalance,
+                            balance: newSenderBalance,
                             transactions: arrayUnion(
-                                { type: 'send_token', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
-                                { type: 'fee', amount: TRANSACTION_FEE, details: `For sending tokens`, date: Timestamp.now() }
+                                { type: 'send_token', amount: sendAmount, to: sendAddress, date: Timestamp.now() }
                             ) 
                         });
                         transaction.update(recipientRef, { 
@@ -996,19 +976,17 @@
                         const recipientDocTx = await transaction.get(recipientRef);
                         if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
                         
-                        if ((senderDoc.data().cashBalance-sendAmount) < TRANSACTION_FEE) {
-                            throw new Error('Insufficient cash for transfer and fee.');
+                        if (senderDoc.data().cashBalance < sendAmount) {
+                            throw new Error('Insufficient cash for transfer.');
                         }
 
-                        const newSenderCashBalance = senderDoc.data().cashBalance - sendAmount - TRANSACTION_FEE;
-                       
+                        const newSenderCashBalance = senderDoc.data().cashBalance - sendAmount;
                         const newRecipientCashBalance = recipientDocTx.data().cashBalance + sendAmount;
                         
                         transaction.update(senderRef, { 
                             cashBalance: newSenderCashBalance,
                             transactions: arrayUnion(
-                                { type: 'send_cash', amount: sendAmount, to: sendAddress, date: Timestamp.now() },
-                                { type: 'fee', amount: TRANSACTION_FEE, details: `For sending cash`, date: Timestamp.now() }
+                                { type: 'send_cash', amount: sendAmount, to: sendAddress, date: Timestamp.now() }
                             ) 
                         });
                         transaction.update(recipientRef, { 
