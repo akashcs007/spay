@@ -359,7 +359,6 @@
                 currentUser: null, 
                 userData: null, 
                 unsubscribe: null,
-                cashToAdd: 0 
             };
             
             // DOM Elements
@@ -616,7 +615,7 @@
                     showToast(`Amount must be greater than the $${TRANSACTION_FEE.toFixed(2)} fee.`, 'error');
                     return;
                 }
-                state.cashToAdd = amount;
+                
                 paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
                 showPage('payment-gateway-page');
                 amountInput.value = '';
@@ -631,14 +630,17 @@
             });
 
             confirmPaymentBtn.addEventListener('click', async () => {
-                const amount = state.cashToAdd;
+                const amountText = paymentCashAmount.textContent.replace('$', '');
+                const amount = parseFloat(amountText);
+
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Invalid payment amount detected.', 'error');
+                    return;
+                }
+
                 const netAmount = amount - TRANSACTION_FEE;
                 const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
                 const userRef = doc(db, 'users', state.currentUser.uid);
-
-                if (amount <= 0) {
-                    showToast('Invalid amount.', 'error'); return;
-                }
                 
                 try {
                     await runTransaction(db, async (transaction) => {
@@ -664,11 +666,10 @@
                     });
 
                     showToast(`Successfully added $${netAmount.toFixed(2)} to your wallet!`, 'success');
-                    state.cashToAdd = 0;
                     showPage('wallet-page');
                 } catch (error) {
                     console.error("Payment transaction failed: ", error);
-                    showToast('Payment failed. Please try again.', 'error');
+                    showToast(`Payment failed: ${error.message}`, 'error');
                 }
             });
 
@@ -716,7 +717,7 @@
                     cashAmountInput.value = '';
                 } catch (error) {
                     console.error("Transaction failed: ", error);
-                    showToast('Conversion failed. Please try again.', 'error');
+                    showToast(`Conversion failed: ${error.message}`, 'error');
                 }
             });
 
@@ -765,7 +766,7 @@
                     tokenAmountInput.value = '';
                 } catch (error) {
                     console.error("Transaction failed: ", error);
-                    showToast('Conversion failed. Please try again.', 'error');
+                    showToast(`Conversion failed: ${error.message}`, 'error');
                 }
             });
             
@@ -830,7 +831,7 @@
                     sendForm.reset();
                 } catch (error) {
                     console.error("Send transaction failed: ", error);
-                    showToast('Send failed. Please try again.', 'error');
+                    showToast(`Send failed: ${error.message}`, 'error');
                 }
             });
 
@@ -857,4 +858,3 @@
     </script>
 </body>
 </html>
-
