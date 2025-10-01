@@ -64,6 +64,7 @@
                     <p id="user-email-display" class="text-sm text-gray-500"></p>
                 </div>
                 <div class="flex items-center gap-2">
+                    <button id="wallet-main-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="wallet-cards"></i></button>
                     <button id="history-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="history"></i></button>
                     <button id="profile-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="user-circle"></i></button>
                 </div>
@@ -81,10 +82,6 @@
                     <button id="send-button" class="bg-cyan-600 text-white py-4 rounded-lg font-semibold hover:bg-cyan-700">Send</button>
                     <button id="receive-button" class="bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700">Receive</button>
                  </div>
-                 <div class="w-full grid grid-cols-2 gap-4">
-                    <button id="add-cash-button" class="bg-teal-600 text-white py-4 rounded-lg font-semibold hover:bg-teal-700">Add Cash</button>
-                    <button id="convert-button" class="bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700">Convert</button>
-                 </div>
                  <div class="w-full mt-4">
                     <button id="business-payment-button" class="w-full bg-slate-700 text-white py-4 rounded-lg font-semibold hover:bg-slate-800">Business Payment</button>
                  </div>
@@ -100,8 +97,8 @@
             <main class="p-8">
                 <form id="send-cash-form">
                     <div class="mb-4">
-                        <label for="send-address" class="block font-medium mb-1">Recipient Address</label>
-                        <input type="text" id="send-address" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="0x...">
+                        <label for="send-identifier" class="block font-medium mb-1">Recipient Email or Phone</label>
+                        <input type="text" id="send-identifier" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="user@example.com or phone">
                     </div>
                     <div class="mb-6">
                         <label for="send-amount" class="block font-medium mb-1">Amount (USD)</label>
@@ -118,14 +115,16 @@
                 <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
                 <h1 class="text-xl font-bold">Receive Cash</h1>
             </header>
-            <main class="p-8 flex-grow flex flex-col justify-center items-center text-center">
-                <p class="mb-4 text-gray-600">Share your unique address to receive cash:</p>
+            <main class="p-8 flex-grow flex flex-col justify-center items-center text-center space-y-4">
+                <p class="text-gray-600">Share your email or phone number to receive cash:</p>
                 <div class="bg-gray-100 p-4 rounded-lg w-full text-center">
-                    <p id="user-address" class="font-mono text-sm break-all"></p>
+                    <p class="font-semibold">Email:</p>
+                    <p id="receive-email" class="font-mono text-sm break-all"></p>
                 </div>
-                <button id="copy-address-btn" class="mt-4 bg-cyan-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-cyan-700 flex items-center gap-2">
-                    <i data-lucide="copy" class="h-4 w-4"></i> Copy Address
-                </button>
+                <div class="bg-gray-100 p-4 rounded-lg w-full text-center">
+                    <p class="font-semibold">Phone:</p>
+                    <p id="receive-phone" class="font-mono text-sm break-all"></p>
+                </div>
             </main>
         </div>
 
@@ -328,7 +327,9 @@
         const paymentCashAmount = document.getElementById('payment-cash-amount');
         const backToWalletBtn = document.getElementById('back-to-wallet');
         const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
-
+        const walletMainButton = document.getElementById('wallet-main-button');
+        const receiveEmail = document.getElementById('receive-email');
+        const receivePhone = document.getElementById('receive-phone');
 
         function showPage(pageId) {
             pages.forEach(p => p.classList.remove('active'));
@@ -344,7 +345,7 @@
                 toast.classList.add('hidden');
             }, 3000);
         }
-
+        
         function renderTransactionHistory(transactions = []) {
             historyList.innerHTML = '';
             if (transactions.length === 0) {
@@ -397,7 +398,7 @@
             });
             lucide.createIcons();
         }
-        
+
         function showTransactionDetails(tx) {
              let content = `
                 <div class="p-4 bg-gray-50 rounded-lg">
@@ -468,9 +469,10 @@
                         userAddress.textContent = userData.address;
                         profileEmail.textContent = userData.email;
                         profilePhone.value = userData.phone || '';
+                        receiveEmail.textContent = userData.email;
+                        receivePhone.textContent = userData.phone || 'Not set';
                         renderTransactionHistory(userData.transactions);
                     } else {
-                        // Create a new user document if it doesn't exist
                         const newUser = {
                             email: user.email,
                             balance: 500,
@@ -490,7 +492,6 @@
             }
         });
 
-        // Auth form toggling
         showRegisterLink.addEventListener('click', (e) => {
             e.preventDefault();
             loginForm.classList.add('hidden');
@@ -502,7 +503,6 @@
             loginForm.classList.remove('hidden');
         });
 
-        // Event Listeners
         registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('register-email').value;
@@ -521,7 +521,6 @@
         });
 
         logoutButton.addEventListener('click', () => signOut(auth));
-
         sendButton.addEventListener('click', () => showPage('send-page'));
         receiveButton.addEventListener('click', () => showPage('receive-page'));
         backToMainBtns.forEach(btn => btn.addEventListener('click', () => showPage('main-page')));
@@ -531,6 +530,7 @@
         backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
         addCashButton.addEventListener('click', () => showPage('wallet-page'));
         convertButton.addEventListener('click', () => showPage('wallet-page'));
+        walletMainButton.addEventListener('click', () => showPage('wallet-page'));
         backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
 
         profileForm.addEventListener('submit', async (e) => {
@@ -556,26 +556,28 @@
 
         sendCashForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const recipientAddress = document.getElementById('send-address').value;
+            const recipientIdentifier = document.getElementById('send-identifier').value;
             const amount = parseFloat(document.getElementById('send-amount').value);
 
-            if (!recipientAddress || isNaN(amount) || amount <= 0) {
-                showToast('Please fill all fields correctly.', true);
-                return;
+            if (!recipientIdentifier || isNaN(amount) || amount <= 0) {
+                showToast('Please fill all fields correctly.', true); return;
             }
 
             const senderRef = doc(db, 'users', currentUser.uid);
-
             const usersCol = collection(db, 'users');
-            const q = query(usersCol, where("address", "==", recipientAddress));
-            const querySnapshot = await getDocs(q);
+            
+            const qEmail = query(usersCol, where("email", "==", recipientIdentifier));
+            const qPhone = query(usersCol, where("phone", "==", recipientIdentifier));
 
-            if (querySnapshot.empty || querySnapshot.docs[0].id === currentUser.uid) {
-                showToast('Recipient address not found or you cannot send to yourself.', true);
-                return;
+            const [emailSnapshot, phoneSnapshot] = await Promise.all([getDocs(qEmail), getDocs(qPhone)]);
+            
+            const recipientSnapshot = !emailSnapshot.empty ? emailSnapshot : phoneSnapshot;
+
+            if (recipientSnapshot.empty || recipientSnapshot.docs[0].id === currentUser.uid) {
+                showToast('Recipient not found or you cannot send to yourself.', true); return;
             }
                 
-            const recipientDoc = querySnapshot.docs[0];
+            const recipientDoc = recipientSnapshot.docs[0];
             const recipientRef = recipientDoc.ref;
 
             try {
@@ -593,7 +595,7 @@
                     
                     transaction.update(senderRef, { 
                         cashBalance: newSenderCashBalance,
-                        transactions: arrayUnion({ type: 'send_cash', amount, to: recipientAddress, date: Timestamp.now() }) 
+                        transactions: arrayUnion({ type: 'send_cash', amount, to: recipientDocTx.data().address, date: Timestamp.now() }) 
                     });
                     transaction.update(recipientRef, { 
                         cashBalance: newRecipientCashBalance,
@@ -619,8 +621,7 @@
             e.preventDefault();
             const amount = parseFloat(document.getElementById('add-cash-amount').value);
             if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true);
-                return;
+                showToast('Please enter a valid amount.', true); return;
             }
             paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
             showPage('payment-gateway-page');
@@ -652,12 +653,10 @@
             e.preventDefault();
             const amount = parseFloat(document.getElementById('cash-to-coin-amount').value);
             if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true);
-                return;
+                showToast('Please enter a valid amount.', true); return;
             }
             if (userData.cashBalance < amount) {
-                showToast('Insufficient cash balance.', true);
-                return;
+                showToast('Insufficient cash balance.', true); return;
             }
             const userRef = doc(db, 'users', currentUser.uid);
             try {
@@ -683,12 +682,10 @@
             e.preventDefault();
             const amount = parseFloat(document.getElementById('coin-to-cash-amount').value);
             if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true);
-                return;
+                showToast('Please enter a valid amount.', true); return;
             }
             if (userData.balance < amount) {
-                showToast('Insufficient coin balance.', true);
-                return;
+                showToast('Insufficient coin balance.', true); return;
             }
             const userRef = doc(db, 'users', currentUser.uid);
             try {
@@ -710,8 +707,6 @@
             }
         });
 
-
-        // Initialize Lucide icons
         lucide.createIcons();
     </script>
 </body>
