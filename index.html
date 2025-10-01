@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spay Demo - Cash Transfer</title>
+    <title>Spay Demo - Digital Wallet</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,6 +11,15 @@
         body { font-family: 'Inter', sans-serif; }
         .page { display: none; }
         .page.active { display: flex; }
+        .gradient-text {
+            background: linear-gradient(to right, #06B6D4, #3B82F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .payment-method.selected {
+            border-color: #06B6D4;
+            background-color: #ECFEFF;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -18,30 +27,31 @@
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-lg flex flex-col relative">
 
         <!-- Toast Notification -->
-        <div id="toast" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md">
+        <div id="toast" class="hidden fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-md z-50">
             <p id="toast-message"></p>
         </div>
 
         <!-- Authentication Page -->
         <div id="auth-page" class="page active flex-col justify-center p-8 w-full">
             <div class="text-center mb-8">
-                <i data-lucide="wallet" class="mx-auto h-16 w-16 text-indigo-600"></i>
-                <h1 class="text-3xl font-bold mt-4">Cash Transfer Demo</h1>
+                <i data-lucide="wallet" class="mx-auto h-16 w-16 text-cyan-500"></i>
+                <h1 class="text-3xl font-bold mt-4 gradient-text">Spay Wallet</h1>
+                <p class="text-gray-500">A new way to manage funds.</p>
             </div>
             <form id="login-form" class="space-y-4">
-                <input type="email" id="login-email" placeholder="Email" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <input type="password" id="login-password" placeholder="Password" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">Login</button>
+                <input type="email" id="login-email" placeholder="Email" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <input type="password" id="login-password" placeholder="Password" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <button type="submit" class="w-full bg-cyan-600 text-white py-2 rounded-lg font-semibold hover:bg-cyan-700">Login</button>
             </form>
              <p class="text-center text-sm text-gray-500 mt-4">
-                No account? <a href="#" id="show-register" class="font-semibold text-indigo-600 hover:text-indigo-500">Register now</a>
+                No account? <a href="#" id="show-register" class="font-semibold text-cyan-600 hover:text-cyan-500">Register now</a>
             </p>
             <form id="register-form" class="space-y-4 hidden">
-                 <input type="email" id="register-email" placeholder="Email" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <input type="password" id="register-password" placeholder="Password" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                 <input type="email" id="register-email" placeholder="Email" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                <input type="password" id="register-password" placeholder="Password" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
                 <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700">Register</button>
                   <p class="text-center text-sm text-gray-500 mt-4">
-                    Have an account? <a href="#" id="show-login" class="font-semibold text-indigo-600 hover:text-indigo-500">Login</a>
+                    Have an account? <a href="#" id="show-login" class="font-semibold text-cyan-600 hover:text-cyan-500">Login</a>
                 </p>
             </form>
         </div>
@@ -56,17 +66,24 @@
                 <div class="flex items-center gap-2">
                     <button id="history-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="history"></i></button>
                     <button id="profile-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="user-circle"></i></button>
-                    <button id="logout-button" class="text-sm text-red-500 font-semibold">Logout</button>
                 </div>
             </header>
             <main class="flex-grow flex flex-col justify-center items-center p-8 space-y-6">
                  <div class="text-center">
+                    <p class="text-gray-500">Coin Balance</p>
+                    <p class="text-4xl font-bold gradient-text"><span id="coin-balance-display">0.00</span> COIN</p>
+                 </div>
+                  <div class="text-center">
                     <p class="text-gray-500">Cash Balance</p>
                     <p class="text-4xl font-bold">$<span id="cash-balance-display">0.00</span></p>
                  </div>
                  <div class="w-full grid grid-cols-2 gap-4">
-                    <button id="send-button" class="bg-indigo-600 text-white py-4 rounded-lg font-semibold hover:bg-indigo-700">Send</button>
+                    <button id="send-button" class="bg-cyan-600 text-white py-4 rounded-lg font-semibold hover:bg-cyan-700">Send</button>
                     <button id="receive-button" class="bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700">Receive</button>
+                 </div>
+                 <div class="w-full grid grid-cols-2 gap-4">
+                    <button id="add-cash-button" class="bg-teal-600 text-white py-4 rounded-lg font-semibold hover:bg-teal-700">Add Cash</button>
+                    <button id="convert-button" class="bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700">Convert</button>
                  </div>
                  <div class="w-full mt-4">
                     <button id="business-payment-button" class="w-full bg-slate-700 text-white py-4 rounded-lg font-semibold hover:bg-slate-800">Business Payment</button>
@@ -84,13 +101,13 @@
                 <form id="send-cash-form">
                     <div class="mb-4">
                         <label for="send-address" class="block font-medium mb-1">Recipient Address</label>
-                        <input type="text" id="send-address" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="0x...">
+                        <input type="text" id="send-address" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="0x...">
                     </div>
                     <div class="mb-6">
                         <label for="send-amount" class="block font-medium mb-1">Amount (USD)</label>
-                        <input type="number" id="send-amount" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" step="0.01" min="0">
+                        <input type="number" id="send-amount" required class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" step="0.01" min="0">
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">Send Cash</button>
+                    <button type="submit" class="w-full bg-cyan-600 text-white py-3 rounded-lg font-semibold hover:bg-cyan-700">Send Cash</button>
                 </form>
             </main>
         </div>
@@ -106,7 +123,7 @@
                 <div class="bg-gray-100 p-4 rounded-lg w-full text-center">
                     <p id="user-address" class="font-mono text-sm break-all"></p>
                 </div>
-                <button id="copy-address-btn" class="mt-4 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-2">
+                <button id="copy-address-btn" class="mt-4 bg-cyan-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-cyan-700 flex items-center gap-2">
                     <i data-lucide="copy" class="h-4 w-4"></i> Copy Address
                 </button>
             </main>
@@ -118,15 +135,17 @@
                 <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
                 <h1 class="text-xl font-bold">My Profile</h1>
             </header>
-            <main class="p-8 space-y-6">
+            <main class="p-8 space-y-6 flex-grow flex flex-col">
                 <div>
                     <label class="block text-sm font-medium text-gray-500">Email Address</label>
                     <p id="profile-email" class="mt-1 p-2 bg-gray-100 rounded-md"></p>
                 </div>
-                <form id="profile-form">
+                <form id="profile-form" class="flex-grow flex flex-col">
                      <label for="profile-phone" class="block text-sm font-medium text-gray-500">Phone Number</label>
-                     <input type="tel" id="profile-phone" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter phone number">
-                     <button type="submit" class="w-full mt-4 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">Save</button>
+                     <input type="tel" id="profile-phone" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-cyan-500" placeholder="Enter phone number">
+                     <button type="submit" class="w-full mt-4 bg-cyan-600 text-white py-2 rounded-lg font-semibold hover:bg-cyan-700">Save</button>
+                     <div class="flex-grow"></div>
+                     <button id="logout-button" type="button" class="w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600">Logout</button>
                 </form>
             </main>
         </div>
@@ -165,6 +184,66 @@
                 <p class="text-gray-500">Business payment feature coming soon.</p>
             </main>
         </div>
+        
+        <!-- Wallet/Conversion Page -->
+        <div id="wallet-page" class="page flex-col w-full">
+            <header class="p-4 border-b flex items-center">
+                <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+                <h1 class="text-xl font-bold">Manage Funds</h1>
+            </header>
+            <main class="p-6 flex-grow overflow-y-auto space-y-8">
+                <form id="add-cash-form" class="bg-gray-50 p-4 rounded-xl">
+                    <h3 class="font-semibold mb-3">Add Cash to Wallet</h3>
+                    <div class="flex items-center">
+                        <input type="number" id="add-cash-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border rounded-l-lg focus:ring-2 focus:ring-cyan-500" step="0.01" min="0">
+                        <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-green-600">Add</button>
+                    </div>
+                </form>
+                <form id="cash-to-coin-form" class="bg-gray-50 p-4 rounded-xl">
+                    <h3 class="font-semibold mb-3">Convert Cash to Coin</h3>
+                    <div class="flex items-center">
+                        <input type="number" id="cash-to-coin-amount" placeholder="Cash ($)" class="w-full px-3 py-2 border rounded-l-lg focus:ring-2 focus:ring-cyan-500" step="0.01" min="0">
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-blue-700">Convert</button>
+                    </div>
+                </form>
+                <form id="coin-to-cash-form" class="bg-gray-50 p-4 rounded-xl">
+                    <h3 class="font-semibold mb-3">Convert Coin to Cash</h3>
+                    <div class="flex items-center">
+                        <input type="number" id="coin-to-cash-amount" placeholder="Coins" class="w-full px-3 py-2 border rounded-l-lg focus:ring-2 focus:ring-cyan-500" step="0.01" min="0">
+                        <button type="submit" class="bg-cyan-600 text-white px-4 py-2 rounded-r-lg font-semibold hover:bg-cyan-700">Convert</button>
+                    </div>
+                </form>
+            </main>
+        </div>
+
+        <!-- Payment Gateway Page -->
+        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
+            <header class="flex items-center mb-8">
+               <button id="back-to-wallet" class="p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+               <h1 class="text-2xl font-bold">Secure Payment</h1>
+           </header>
+           <main class="flex-grow">
+                <div class="bg-gray-50 p-6 rounded-xl mb-6 text-center">
+                   <p class="text-gray-500">Amount to Add</p>
+                   <p class="text-3xl font-bold my-2 text-green-600" id="payment-cash-amount">$0.00</p>
+                </div>
+               <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
+               <div id="payment-methods" class="space-y-3">
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3 selected" data-method="upi">
+                        <i data-lucide="send" class="h-6 w-6 text-cyan-500"></i> UPI
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3" data-method="card">
+                        <i data-lucide="credit-card" class="h-6 w-6 text-cyan-500"></i> Credit/Debit Card
+                   </button>
+                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3" data-method="netbanking">
+                        <i data-lucide="landmark" class="h-6 w-6 text-cyan-500"></i> Net Banking
+                   </button>
+               </div>
+           </main>
+           <footer class="mt-8">
+                <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600">Confirm Deposit</button>
+           </footer>
+       </div>
     </div>
 
     <!-- Firebase SDK -->
@@ -223,6 +302,7 @@
         const logoutButton = document.getElementById('logout-button');
         const userEmailDisplay = document.getElementById('user-email-display');
         const cashBalanceDisplay = document.getElementById('cash-balance-display');
+        const coinBalanceDisplay = document.getElementById('coin-balance-display');
         const sendButton = document.getElementById('send-button');
         const receiveButton = document.getElementById('receive-button');
         const backToMainBtns = document.querySelectorAll('.back-to-main');
@@ -240,6 +320,14 @@
         const historyList = document.getElementById('history-list');
         const transactionDetailsContent = document.getElementById('transaction-details-content');
         const backToHistoryBtn = document.getElementById('back-to-history');
+        const addCashButton = document.getElementById('add-cash-button');
+        const convertButton = document.getElementById('convert-button');
+        const addCashForm = document.getElementById('add-cash-form');
+        const cashToCoinForm = document.getElementById('cash-to-coin-form');
+        const coinToCashForm = document.getElementById('coin-to-cash-form');
+        const paymentCashAmount = document.getElementById('payment-cash-amount');
+        const backToWalletBtn = document.getElementById('back-to-wallet');
+        const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
 
 
         function showPage(pageId) {
@@ -269,22 +357,41 @@
             sortedTxs.forEach((tx, index) => {
                 const li = document.createElement('li');
                 li.className = 'p-3 bg-gray-50 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-100';
-                li.dataset.index = index; // Use index to retrieve details
+                li.dataset.index = index; 
 
-                const isSend = tx.type === 'send_cash';
-                const icon = isSend ? 'arrow-up-right' : 'arrow-down-left';
-                const color = isSend ? 'text-red-500' : 'text-green-500';
-                const sign = isSend ? '-' : '+';
+                let icon, color, sign, title, amountText;
+
+                switch(tx.type) {
+                    case 'send_cash':
+                        icon = 'arrow-up-right'; color = 'text-red-500'; sign = '-'; 
+                        title = 'Sent Cash'; amountText = `$${tx.amount.toFixed(2)}`;
+                        break;
+                    case 'receive_cash':
+                        icon = 'arrow-down-left'; color = 'text-green-500'; sign = '+';
+                        title = 'Received Cash'; amountText = `$${tx.amount.toFixed(2)}`;
+                        break;
+                    case 'deposit':
+                        icon = 'plus-circle'; color = 'text-green-500'; sign = '+';
+                        title = 'Cash Deposit'; amountText = `$${tx.amount.toFixed(2)}`;
+                        break;
+                    case 'conversion':
+                        icon = 'repeat'; color = 'text-blue-500'; sign = tx.amountString.startsWith('+') ? '+' : '-';
+                        title = tx.title; amountText = tx.amountString;
+                        break;
+                    default:
+                        icon = 'help-circle'; color = 'text-gray-500'; sign = '';
+                        title = 'Unknown'; amountText = '';
+                }
                 
                 li.innerHTML = `
                     <div class="flex items-center gap-3">
                         <i data-lucide="${icon}" class="${color} h-5 w-5"></i>
                         <div>
-                            <p class="font-semibold">${isSend ? 'Sent' : 'Received'} Cash</p>
+                            <p class="font-semibold">${title}</p>
                             <p class="text-xs text-gray-500">${tx.date.toDate().toLocaleString()}</p>
                         </div>
                     </div>
-                    <p class="font-semibold ${color}">${sign}$${tx.amount.toFixed(2)}</p>
+                    <p class="font-semibold ${color}">${amountText}</p>
                 `;
                 historyList.appendChild(li);
             });
@@ -292,25 +399,56 @@
         }
         
         function showTransactionDetails(tx) {
-            const isSend = tx.type === 'send_cash';
-            transactionDetailsContent.innerHTML = `
+             let content = `
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Amount</p>
-                    <p class="text-2xl font-bold ${isSend ? 'text-red-500' : 'text-green-500'}">${isSend ? '-' : '+'}$${tx.amount.toFixed(2)}</p>
+                    <p class="text-2xl font-bold">${tx.type === 'send_cash' ? '-' : '+'}$${tx.amount.toFixed(2)}</p>
                 </div>
                 <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">From</p>
-                    <p class="font-mono text-xs break-all">${isSend ? userData.address : tx.from}</p>
+                    <p class="font-mono text-xs break-all">${tx.type === 'send_cash' ? userData.address : tx.from}</p>
                 </div>
                  <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">To</p>
-                    <p class="font-mono text-xs break-all">${isSend ? tx.to : userData.address}</p>
+                    <p class="font-mono text-xs break-all">${tx.type === 'send_cash' ? tx.to : userData.address}</p>
                 </div>
                  <div class="p-4 bg-gray-50 rounded-lg">
                     <p class="text-sm text-gray-500">Date & Time</p>
                     <p>${tx.date.toDate().toLocaleString()}</p>
                 </div>
             `;
+            if (tx.type === 'conversion') {
+                 content = `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Transaction</p>
+                        <p class="text-xl font-bold">${tx.title}</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Details</p>
+                        <p class="font-semibold">${tx.details}</p>
+                    </div>
+                     <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Date & Time</p>
+                        <p>${tx.date.toDate().toLocaleString()}</p>
+                    </div>
+                `;
+            } else if (tx.type === 'deposit') {
+                 content = `
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Amount</p>
+                        <p class="text-2xl font-bold text-green-500">+$${tx.amount.toFixed(2)}</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Method</p>
+                        <p class="font-semibold">${tx.method}</p>
+                    </div>
+                     <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-500">Date & Time</p>
+                        <p>${tx.date.toDate().toLocaleString()}</p>
+                    </div>
+                `;
+            }
+            transactionDetailsContent.innerHTML = content;
             showPage('transaction-details-page');
         }
 
@@ -326,6 +464,7 @@
                         userData = docSnap.data();
                         userEmailDisplay.textContent = userData.email;
                         cashBalanceDisplay.textContent = userData.cashBalance.toFixed(2);
+                        coinBalanceDisplay.textContent = userData.balance.toFixed(2);
                         userAddress.textContent = userData.address;
                         profileEmail.textContent = userData.email;
                         profilePhone.value = userData.phone || '';
@@ -390,6 +529,9 @@
         historyButton.addEventListener('click', () => showPage('history-page'));
         businessPaymentButton.addEventListener('click', () => showPage('business-page'));
         backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
+        addCashButton.addEventListener('click', () => showPage('wallet-page'));
+        convertButton.addEventListener('click', () => showPage('wallet-page'));
+        backToWalletBtn.addEventListener('click', () => showPage('wallet-page'));
 
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -472,6 +614,102 @@
                 .then(() => showToast('Address copied to clipboard!'))
                 .catch(() => showToast('Failed to copy address.', true));
         });
+
+        addCashForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('add-cash-amount').value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount.', true);
+                return;
+            }
+            paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
+            showPage('payment-gateway-page');
+        });
+
+        confirmPaymentBtn.addEventListener('click', async () => {
+            const amount = parseFloat(paymentCashAmount.textContent.replace('$', ''));
+            const userRef = doc(db, 'users', currentUser.uid);
+            const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
+
+            try {
+                await updateDoc(userRef, {
+                    cashBalance: userData.cashBalance + amount,
+                    transactions: arrayUnion({
+                        type: 'deposit',
+                        amount,
+                        method: selectedMethod,
+                        date: Timestamp.now()
+                    })
+                });
+                showToast('Cash added successfully!');
+                showPage('main-page');
+            } catch (error) {
+                showToast(`Error: ${error.message}`, true);
+            }
+        });
+
+        cashToCoinForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('cash-to-coin-amount').value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount.', true);
+                return;
+            }
+            if (userData.cashBalance < amount) {
+                showToast('Insufficient cash balance.', true);
+                return;
+            }
+            const userRef = doc(db, 'users', currentUser.uid);
+            try {
+                await updateDoc(userRef, {
+                    cashBalance: userData.cashBalance - amount,
+                    balance: userData.balance + amount,
+                    transactions: arrayUnion({
+                        type: 'conversion',
+                        title: 'Cash to Coin',
+                        details: `$${amount.toFixed(2)} -> ${amount.toFixed(2)} COIN`,
+                        amountString: `+${amount.toFixed(2)} COIN`,
+                        date: Timestamp.now()
+                    })
+                });
+                showToast('Conversion successful!');
+                document.getElementById('cash-to-coin-amount').value = '';
+            } catch(error) {
+                showToast(`Error: ${error.message}`, true);
+            }
+        });
+        
+        coinToCashForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('coin-to-cash-amount').value);
+            if (isNaN(amount) || amount <= 0) {
+                showToast('Please enter a valid amount.', true);
+                return;
+            }
+            if (userData.balance < amount) {
+                showToast('Insufficient coin balance.', true);
+                return;
+            }
+            const userRef = doc(db, 'users', currentUser.uid);
+            try {
+                await updateDoc(userRef, {
+                    balance: userData.balance - amount,
+                    cashBalance: userData.cashBalance + amount,
+                    transactions: arrayUnion({
+                        type: 'conversion',
+                        title: 'Coin to Cash',
+                        details: `${amount.toFixed(2)} COIN -> $${amount.toFixed(2)}`,
+                        amountString: `+$${amount.toFixed(2)}`,
+                        date: Timestamp.now()
+                    })
+                });
+                showToast('Conversion successful!');
+                 document.getElementById('coin-to-cash-amount').value = '';
+            } catch(error) {
+                showToast(`Error: ${error.message}`, true);
+            }
+        });
+
 
         // Initialize Lucide icons
         lucide.createIcons();
