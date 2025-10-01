@@ -16,10 +16,6 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .payment-method.selected {
-            border-color: #06B6D4;
-            background-color: #ECFEFF;
-        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -215,34 +211,6 @@
             </main>
         </div>
 
-        <!-- Payment Gateway Page -->
-        <div id="payment-gateway-page" class="page p-6 sm:p-8 flex-grow flex flex-col">
-            <header class="flex items-center mb-8">
-               <button id="back-to-notification" class="p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
-               <h1 class="text-2xl font-bold">Secure Payment</h1>
-           </header>
-           <main class="flex-grow">
-                <div class="bg-gray-50 p-6 rounded-xl mb-6 text-center">
-                   <p class="text-gray-500">Amount to Add</p>
-                   <p class="text-3xl font-bold my-2 text-green-600" id="payment-cash-amount">$0.00</p>
-                </div>
-               <h3 class="font-semibold mb-4 text-lg">Select Payment Method</h3>
-               <div id="payment-methods" class="space-y-3">
-                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3 selected" data-method="upi">
-                        <i data-lucide="send" class="h-6 w-6 text-cyan-500"></i> UPI
-                   </button>
-                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3" data-method="card">
-                        <i data-lucide="credit-card" class="h-6 w-6 text-cyan-500"></i> Credit/Debit Card
-                   </button>
-                   <button class="payment-method w-full text-left p-4 border-2 border-gray-300 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-3" data-method="netbanking">
-                        <i data-lucide="landmark" class="h-6 w-6 text-cyan-500"></i> Net Banking
-                   </button>
-               </div>
-           </main>
-           <footer class="mt-8">
-                <button id="confirm-payment-btn" class="w-full bg-green-500 text-white py-4 px-4 font-bold rounded-lg hover:bg-green-600">Confirm Deposit</button>
-           </footer>
-       </div>
     </div>
 
     <!-- Firebase SDK -->
@@ -322,9 +290,6 @@
         const addCashForm = document.getElementById('add-cash-form');
         const cashToCoinForm = document.getElementById('cash-to-coin-form');
         const coinToCashForm = document.getElementById('coin-to-cash-form');
-        const paymentCashAmount = document.getElementById('payment-cash-amount');
-        const backToWalletBtn = document.getElementById('back-to-wallet');
-        const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
         const notificationButton = document.getElementById('notification-button');
         const receiveEmail = document.getElementById('receive-email');
         const receivePhone = document.getElementById('receive-phone');
@@ -529,7 +494,10 @@
         historyButton.addEventListener('click', () => showPage('history-page'));
         businessPaymentButton.addEventListener('click', () => showPage('business-page'));
         backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
-        notificationButton.addEventListener('click', () => showPage('wallet-page'));
+        notificationButton.addEventListener('click', () => showPage('notification-page'));
+        
+        if(backToWalletBtn) backToWalletBtn.addEventListener('click', () => showPage('notification-page'));
+
 
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
