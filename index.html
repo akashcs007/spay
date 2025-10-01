@@ -53,7 +53,11 @@
                     <h1 class="text-xl font-bold">Dashboard</h1>
                     <p id="user-email-display" class="text-sm text-gray-500"></p>
                 </div>
-                 <button id="logout-button" class="text-sm text-red-500 font-semibold">Logout</button>
+                <div class="flex items-center gap-2">
+                    <button id="history-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="history"></i></button>
+                    <button id="profile-button" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="user-circle"></i></button>
+                    <button id="logout-button" class="text-sm text-red-500 font-semibold">Logout</button>
+                </div>
             </header>
             <main class="flex-grow flex flex-col justify-center items-center p-8 space-y-6">
                  <div class="text-center">
@@ -63,6 +67,9 @@
                  <div class="w-full grid grid-cols-2 gap-4">
                     <button id="send-button" class="bg-indigo-600 text-white py-4 rounded-lg font-semibold hover:bg-indigo-700">Send</button>
                     <button id="receive-button" class="bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700">Receive</button>
+                 </div>
+                 <div class="w-full mt-4">
+                    <button id="business-payment-button" class="w-full bg-slate-700 text-white py-4 rounded-lg font-semibold hover:bg-slate-800">Business Payment</button>
                  </div>
             </main>
         </div>
@@ -104,6 +111,60 @@
                 </button>
             </main>
         </div>
+
+        <!-- Profile Page -->
+        <div id="profile-page" class="page flex-col w-full">
+             <header class="p-4 border-b flex items-center">
+                <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+                <h1 class="text-xl font-bold">My Profile</h1>
+            </header>
+            <main class="p-8 space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-500">Email Address</label>
+                    <p id="profile-email" class="mt-1 p-2 bg-gray-100 rounded-md"></p>
+                </div>
+                <form id="profile-form">
+                     <label for="profile-phone" class="block text-sm font-medium text-gray-500">Phone Number</label>
+                     <input type="tel" id="profile-phone" class="w-full mt-1 p-2 border rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Enter phone number">
+                     <button type="submit" class="w-full mt-4 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700">Save</button>
+                </form>
+            </main>
+        </div>
+
+        <!-- History Page -->
+        <div id="history-page" class="page flex-col w-full">
+             <header class="p-4 border-b flex items-center">
+                <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+                <h1 class="text-xl font-bold">Transaction History</h1>
+            </header>
+            <main class="p-4 flex-grow overflow-y-auto">
+                <ul id="history-list" class="space-y-3">
+                    <!-- Transactions will be rendered here -->
+                </ul>
+            </main>
+        </div>
+        
+        <!-- Transaction Details Page -->
+        <div id="transaction-details-page" class="page flex-col w-full">
+            <header class="p-4 border-b flex items-center">
+                <button id="back-to-history" class="p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+                <h1 class="text-xl font-bold">Transaction Details</h1>
+            </header>
+            <main id="transaction-details-content" class="p-8 space-y-4">
+                <!-- Details will be injected here -->
+            </main>
+        </div>
+
+        <!-- Business Page (Placeholder) -->
+        <div id="business-page" class="page flex-col w-full">
+            <header class="p-4 border-b flex items-center">
+                <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
+                <h1 class="text-xl font-bold">Business Payment</h1>
+            </header>
+            <main class="p-8 flex-grow flex items-center justify-center">
+                <p class="text-gray-500">Business payment feature coming soon.</p>
+            </main>
+        </div>
     </div>
 
     <!-- Firebase SDK -->
@@ -128,7 +189,8 @@
             getDocs, 
             runTransaction,
             Timestamp,
-            arrayUnion
+            arrayUnion,
+            updateDoc
         } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
         // --- Your web app's Firebase configuration ---
@@ -149,6 +211,7 @@
 
         // Global state
         let currentUser = null;
+        let userData = null;
         let unsubscribeUser = null;
 
         // DOM Elements
@@ -168,6 +231,16 @@
         const copyAddressBtn = document.getElementById('copy-address-btn');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toast-message');
+        const profileButton = document.getElementById('profile-button');
+        const historyButton = document.getElementById('history-button');
+        const businessPaymentButton = document.getElementById('business-payment-button');
+        const profileEmail = document.getElementById('profile-email');
+        const profilePhone = document.getElementById('profile-phone');
+        const profileForm = document.getElementById('profile-form');
+        const historyList = document.getElementById('history-list');
+        const transactionDetailsContent = document.getElementById('transaction-details-content');
+        const backToHistoryBtn = document.getElementById('back-to-history');
+
 
         function showPage(pageId) {
             pages.forEach(p => p.classList.remove('active'));
@@ -184,6 +257,63 @@
             }, 3000);
         }
 
+        function renderTransactionHistory(transactions = []) {
+            historyList.innerHTML = '';
+            if (transactions.length === 0) {
+                historyList.innerHTML = `<li class="text-center text-gray-500">No transactions yet.</li>`;
+                return;
+            }
+            
+            const sortedTxs = [...transactions].sort((a,b) => b.date.toMillis() - a.date.toMillis());
+
+            sortedTxs.forEach((tx, index) => {
+                const li = document.createElement('li');
+                li.className = 'p-3 bg-gray-50 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-100';
+                li.dataset.index = index; // Use index to retrieve details
+
+                const isSend = tx.type === 'send_cash';
+                const icon = isSend ? 'arrow-up-right' : 'arrow-down-left';
+                const color = isSend ? 'text-red-500' : 'text-green-500';
+                const sign = isSend ? '-' : '+';
+                
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="${icon}" class="${color} h-5 w-5"></i>
+                        <div>
+                            <p class="font-semibold">${isSend ? 'Sent' : 'Received'} Cash</p>
+                            <p class="text-xs text-gray-500">${tx.date.toDate().toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <p class="font-semibold ${color}">${sign}$${tx.amount.toFixed(2)}</p>
+                `;
+                historyList.appendChild(li);
+            });
+            lucide.createIcons();
+        }
+        
+        function showTransactionDetails(tx) {
+            const isSend = tx.type === 'send_cash';
+            transactionDetailsContent.innerHTML = `
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-500">Amount</p>
+                    <p class="text-2xl font-bold ${isSend ? 'text-red-500' : 'text-green-500'}">${isSend ? '-' : '+'}$${tx.amount.toFixed(2)}</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-500">From</p>
+                    <p class="font-mono text-xs break-all">${isSend ? userData.address : tx.from}</p>
+                </div>
+                 <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-500">To</p>
+                    <p class="font-mono text-xs break-all">${isSend ? tx.to : userData.address}</p>
+                </div>
+                 <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-500">Date & Time</p>
+                    <p>${tx.date.toDate().toLocaleString()}</p>
+                </div>
+            `;
+            showPage('transaction-details-page');
+        }
+
         onAuthStateChanged(auth, user => {
             if (unsubscribeUser) unsubscribeUser();
 
@@ -193,18 +323,22 @@
 
                 unsubscribeUser = onSnapshot(userRef, (docSnap) => {
                     if (docSnap.exists()) {
-                        const userData = docSnap.data();
+                        userData = docSnap.data();
                         userEmailDisplay.textContent = userData.email;
                         cashBalanceDisplay.textContent = userData.cashBalance.toFixed(2);
                         userAddress.textContent = userData.address;
+                        profileEmail.textContent = userData.email;
+                        profilePhone.value = userData.phone || '';
+                        renderTransactionHistory(userData.transactions);
                     } else {
                         // Create a new user document if it doesn't exist
                         const newUser = {
                             email: user.email,
-                            balance: 500, // Default token balance
-                            cashBalance: 100, // Default cash balance
+                            balance: 500,
+                            cashBalance: 100,
                             address: `0x${[...Array(40)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-                            transactions: []
+                            transactions: [],
+                            phone: ""
                         };
                         setDoc(userRef, newUser);
                     }
@@ -212,6 +346,7 @@
                 showPage('main-page');
             } else {
                 currentUser = null;
+                userData = null;
                 showPage('auth-page');
             }
         });
@@ -251,6 +386,31 @@
         sendButton.addEventListener('click', () => showPage('send-page'));
         receiveButton.addEventListener('click', () => showPage('receive-page'));
         backToMainBtns.forEach(btn => btn.addEventListener('click', () => showPage('main-page')));
+        profileButton.addEventListener('click', () => showPage('profile-page'));
+        historyButton.addEventListener('click', () => showPage('history-page'));
+        businessPaymentButton.addEventListener('click', () => showPage('business-page'));
+        backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
+
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const phone = profilePhone.value;
+            const userRef = doc(db, 'users', currentUser.uid);
+            try {
+                await updateDoc(userRef, { phone: phone });
+                showToast('Profile updated successfully!');
+            } catch (error) {
+                showToast('Failed to update profile.', true);
+            }
+        });
+
+        historyList.addEventListener('click', (e) => {
+            const item = e.target.closest('li');
+            if (item && item.dataset.index) {
+                const txIndex = parseInt(item.dataset.index);
+                const sortedTxs = [...userData.transactions].sort((a,b) => b.date.toMillis() - a.date.toMillis());
+                showTransactionDetails(sortedTxs[txIndex]);
+            }
+        });
 
         sendCashForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -318,3 +478,4 @@
     </script>
 </body>
 </html>
+
