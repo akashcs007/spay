@@ -317,6 +317,7 @@
         }
         
         function renderTransactionHistory(transactions = []) {
+            if (!historyList) return;
             historyList.innerHTML = '';
             if (transactions.length === 0) {
                 historyList.innerHTML = `<li class="text-center text-gray-500">No transactions yet.</li>`;
@@ -505,22 +506,19 @@
             notificationButton.addEventListener('click', () => showPage('notification-page'));
         }
         
-        if (backToWalletBtn) {
-            backToWalletBtn.addEventListener('click', () => showPage('notification-page'));
+        if(profileForm) {
+            profileForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const phone = profilePhone.value;
+                const userRef = doc(db, 'users', currentUser.uid);
+                try {
+                    await updateDoc(userRef, { phone: phone });
+                    showToast('Profile updated successfully!');
+                } catch (error) {
+                    showToast('Failed to update profile.', true);
+                }
+            });
         }
-
-
-        profileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const phone = profilePhone.value;
-            const userRef = doc(db, 'users', currentUser.uid);
-            try {
-                await updateDoc(userRef, { phone: phone });
-                showToast('Profile updated successfully!');
-            } catch (error) {
-                showToast('Failed to update profile.', true);
-            }
-        });
 
         if (historyList) {
             historyList.addEventListener('click', (e) => {
@@ -601,7 +599,7 @@
         }
 
         if(addCashForm) {
-            addCashForm.addEventListener('submit', (e) => {
+            addCashForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const amount = parseFloat(document.getElementById('add-cash-amount').value);
                 if (isNaN(amount) || amount <= 0) {
@@ -609,7 +607,7 @@
                 }
                 const userRef = doc(db, 'users', currentUser.uid);
                  try {
-                    updateDoc(userRef, {
+                    await updateDoc(userRef, {
                         cashBalance: userData.cashBalance + amount,
                         transactions: arrayUnion({
                             type: 'deposit',
