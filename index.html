@@ -16,6 +16,10 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .payment-method.selected {
+            border-color: #06B6D4;
+            background-color: #ECFEFF;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -175,22 +179,8 @@
                 <button class="back-to-main p-2 rounded-full hover:bg-gray-100 mr-2"><i data-lucide="arrow-left"></i></button>
                 <h1 class="text-xl font-bold">Business Payment</h1>
             </header>
-            <main class="p-8 flex-grow flex flex-col items-center">
-                <div class="w-full mb-8">
-                    <label for="product-details" class="block text-lg font-semibold text-gray-700 mb-2">Product Details</label>
-                    <textarea id="product-details" rows="3" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Enter a brief description (max 10 words)..."></textarea>
-                    <p id="word-count" class="text-sm text-gray-500 text-right mt-1">0/10 words</p>
-                </div>
-                <div class="flex justify-center space-x-12">
-                    <button id="buy-button" class="flex flex-col items-center justify-center h-24 w-24 rounded-full bg-blue-600 text-white font-semibold shadow-lg hover:bg-blue-700 transition">
-                        <i data-lucide="shopping-cart" class="h-8 w-8"></i>
-                        <span>Buy</span>
-                    </button>
-                    <button id="sell-button" class="flex flex-col items-center justify-center h-24 w-24 rounded-full bg-green-600 text-white font-semibold shadow-lg hover:bg-green-700 transition">
-                        <i data-lucide="tag" class="h-8 w-8"></i>
-                        <span>Sell</span>
-                    </button>
-                </div>
+            <main class="p-8 flex-grow flex items-center justify-center">
+                <p class="text-gray-500">Business payment feature coming soon.</p>
             </main>
         </div>
         
@@ -326,10 +316,10 @@
             }, 3000);
         }
         
-        function renderTransactionHistory(transactions = []) {
+        function renderTransactionHistory(transactions) {
             if (!historyList) return;
             historyList.innerHTML = '';
-            if (transactions.length === 0) {
+            if (!transactions || transactions.length === 0) {
                 historyList.innerHTML = `<li class="text-center text-gray-500">No transactions yet.</li>`;
                 return;
             }
@@ -609,7 +599,7 @@
         }
 
         if(addCashForm) {
-            addCashForm.addEventListener('submit', (e) => {
+            addCashForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const amount = parseFloat(document.getElementById('add-cash-amount').value);
                 if (isNaN(amount) || amount <= 0) {
@@ -617,7 +607,7 @@
                 }
                 const userRef = doc(db, 'users', currentUser.uid);
                  try {
-                    updateDoc(userRef, {
+                    await updateDoc(userRef, {
                         cashBalance: userData.cashBalance + amount,
                         transactions: arrayUnion({
                             type: 'deposit',
