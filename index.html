@@ -16,6 +16,10 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
+        .payment-method.selected {
+            border-color: #06B6D4;
+            background-color: #ECFEFF;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -493,10 +497,17 @@
         profileButton.addEventListener('click', () => showPage('profile-page'));
         historyButton.addEventListener('click', () => showPage('history-page'));
         businessPaymentButton.addEventListener('click', () => showPage('business-page'));
-        backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
-        notificationButton.addEventListener('click', () => showPage('notification-page'));
         
-        if(backToWalletBtn) backToWalletBtn.addEventListener('click', () => showPage('notification-page'));
+        if (backToHistoryBtn) {
+            backToHistoryBtn.addEventListener('click', () => showPage('history-page'));
+        }
+        if (notificationButton) {
+            notificationButton.addEventListener('click', () => showPage('notification-page'));
+        }
+        
+        if (backToWalletBtn) {
+            backToWalletBtn.addEventListener('click', () => showPage('notification-page'));
+        }
 
 
         profileForm.addEventListener('submit', async (e) => {
@@ -511,168 +522,173 @@
             }
         });
 
-        historyList.addEventListener('click', (e) => {
-            const item = e.target.closest('li');
-            if (item && item.dataset.index) {
-                const txIndex = parseInt(item.dataset.index);
-                const sortedTxs = [...userData.transactions].sort((a,b) => b.date.toMillis() - a.date.toMillis());
-                showTransactionDetails(sortedTxs[txIndex]);
-            }
-        });
+        if (historyList) {
+            historyList.addEventListener('click', (e) => {
+                const item = e.target.closest('li');
+                if (item && item.dataset.index) {
+                    const txIndex = parseInt(item.dataset.index);
+                    const sortedTxs = [...userData.transactions].sort((a,b) => b.date.toMillis() - a.date.toMillis());
+                    showTransactionDetails(sortedTxs[txIndex]);
+                }
+            });
+        }
 
-        sendCashForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const recipientIdentifier = document.getElementById('send-identifier').value;
-            const amount = parseFloat(document.getElementById('send-amount').value);
+        if (sendCashForm) {
+            sendCashForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const recipientIdentifier = document.getElementById('send-identifier').value;
+                const amount = parseFloat(document.getElementById('send-amount').value);
 
-            if (!recipientIdentifier || isNaN(amount) || amount <= 0) {
-                showToast('Please fill all fields correctly.', true); return;
-            }
+                if (!recipientIdentifier || isNaN(amount) || amount <= 0) {
+                    showToast('Please fill all fields correctly.', true); return;
+                }
 
-            const senderRef = doc(db, 'users', currentUser.uid);
-            const usersCol = collection(db, 'users');
-            
-            const qEmail = query(usersCol, where("email", "==", recipientIdentifier));
-            const qPhone = query(usersCol, where("phone", "==", recipientIdentifier));
-
-            const [emailSnapshot, phoneSnapshot] = await Promise.all([getDocs(qEmail), getDocs(qPhone)]);
-            
-            const recipientSnapshot = !emailSnapshot.empty ? emailSnapshot : phoneSnapshot;
-
-            if (recipientSnapshot.empty || recipientSnapshot.docs[0].id === currentUser.uid) {
-                showToast('Recipient not found or you cannot send to yourself.', true); return;
-            }
+                const senderRef = doc(db, 'users', currentUser.uid);
+                const usersCol = collection(db, 'users');
                 
-            const recipientDoc = recipientSnapshot.docs[0];
-            const recipientRef = recipientDoc.ref;
+                const qEmail = query(usersCol, where("email", "==", recipientIdentifier));
+                const qPhone = query(usersCol, where("phone", "==", recipientIdentifier));
 
-            try {
-                await runTransaction(db, async (transaction) => {
-                    const senderDoc = await transaction.get(senderRef);
-                    const recipientDocTx = await transaction.get(recipientRef);
-                    if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+                const [emailSnapshot, phoneSnapshot] = await Promise.all([getDocs(qEmail), getDocs(qPhone)]);
+                
+                const recipientSnapshot = !emailSnapshot.empty ? emailSnapshot : phoneSnapshot;
+
+                if (recipientSnapshot.empty || recipientSnapshot.docs[0].id === currentUser.uid) {
+                    showToast('Recipient not found or you cannot send to yourself.', true); return;
+                }
                     
-                    if (senderDoc.data().cashBalance < amount) {
-                        throw new Error('Insufficient cash for transfer.');
-                    }
+                const recipientDoc = recipientSnapshot.docs[0];
+                const recipientRef = recipientDoc.ref;
 
-                    const newSenderCashBalance = senderDoc.data().cashBalance - amount;
-                    const newRecipientCashBalance = recipientDocTx.data().cashBalance + amount;
-                    
-                    transaction.update(senderRef, { 
-                        cashBalance: newSenderCashBalance,
-                        transactions: arrayUnion({ type: 'send_cash', amount, to: recipientDocTx.data().address, date: Timestamp.now() }) 
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const senderDoc = await transaction.get(senderRef);
+                        const recipientDocTx = await transaction.get(recipientRef);
+                        if (!senderDoc.exists() || !recipientDocTx.exists()) throw "User does not exist!";
+                        
+                        if (senderDoc.data().cashBalance < amount) {
+                            throw new Error('Insufficient cash for transfer.');
+                        }
+
+                        const newSenderCashBalance = senderDoc.data().cashBalance - amount;
+                        const newRecipientCashBalance = recipientDocTx.data().cashBalance + amount;
+                        
+                        transaction.update(senderRef, { 
+                            cashBalance: newSenderCashBalance,
+                            transactions: arrayUnion({ type: 'send_cash', amount, to: recipientDocTx.data().address, date: Timestamp.now() }) 
+                        });
+                        transaction.update(recipientRef, { 
+                            cashBalance: newRecipientCashBalance,
+                            transactions: arrayUnion({ type: 'receive_cash', amount, from: senderDoc.data().address, date: Timestamp.now() })
+                        });
                     });
-                    transaction.update(recipientRef, { 
-                        cashBalance: newRecipientCashBalance,
-                        transactions: arrayUnion({ type: 'receive_cash', amount, from: senderDoc.data().address, date: Timestamp.now() })
+                    showToast(`Successfully sent $${amount.toFixed(2)}.`, false);
+                    showPage('main-page');
+                    sendCashForm.reset();
+                } catch (error) {
+                    console.error("Send cash failed: ", error);
+                    showToast(`Send failed: ${error.message}`, true);
+                }
+            });
+        }
+
+        if (copyAddressBtn) {
+            copyAddressBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(userAddress.textContent)
+                    .then(() => showToast('Address copied to clipboard!'))
+                    .catch(() => showToast('Failed to copy address.', true));
+            });
+        }
+
+        if(addCashForm) {
+            addCashForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('add-cash-amount').value);
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Please enter a valid amount.', true); return;
+                }
+                const userRef = doc(db, 'users', currentUser.uid);
+                 try {
+                    updateDoc(userRef, {
+                        cashBalance: userData.cashBalance + amount,
+                        transactions: arrayUnion({
+                            type: 'deposit',
+                            amount: amount,
+                            method: 'Direct Deposit',
+                            date: Timestamp.now()
+                        })
                     });
-                });
-                showToast(`Successfully sent $${amount.toFixed(2)}.`, false);
-                showPage('main-page');
-                sendCashForm.reset();
-            } catch (error) {
-                console.error("Send cash failed: ", error);
-                showToast(`Send failed: ${error.message}`, true);
-            }
-        });
+                    showToast('Cash added successfully!');
+                    document.getElementById('add-cash-amount').value = '';
+                    showPage('main-page');
+                } catch (error) {
+                    showToast(`Error: ${error.message}`, true);
+                }
+            });
+        }
 
-        copyAddressBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(userAddress.textContent)
-                .then(() => showToast('Address copied to clipboard!'))
-                .catch(() => showToast('Failed to copy address.', true));
-        });
-
-        addCashForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const amount = parseFloat(document.getElementById('add-cash-amount').value);
-            if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true); return;
-            }
-            paymentCashAmount.textContent = `$${amount.toFixed(2)}`;
-            showPage('payment-gateway-page');
-        });
-
-        confirmPaymentBtn.addEventListener('click', async () => {
-            const amount = parseFloat(paymentCashAmount.textContent.replace('$', ''));
-            const userRef = doc(db, 'users', currentUser.uid);
-            const selectedMethod = document.querySelector('.payment-method.selected').dataset.method.toUpperCase();
-
-            try {
-                await updateDoc(userRef, {
-                    cashBalance: userData.cashBalance + amount,
-                    transactions: arrayUnion({
-                        type: 'deposit',
-                        amount,
-                        method: selectedMethod,
-                        date: Timestamp.now()
-                    })
-                });
-                showToast('Cash added successfully!');
-                showPage('main-page');
-            } catch (error) {
-                showToast(`Error: ${error.message}`, true);
-            }
-        });
-
-        cashToCoinForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const amount = parseFloat(document.getElementById('cash-to-coin-amount').value);
-            if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true); return;
-            }
-            if (userData.cashBalance < amount) {
-                showToast('Insufficient cash balance.', true); return;
-            }
-            const userRef = doc(db, 'users', currentUser.uid);
-            try {
-                await updateDoc(userRef, {
-                    cashBalance: userData.cashBalance - amount,
-                    balance: userData.balance + amount,
-                    transactions: arrayUnion({
-                        type: 'conversion',
-                        title: 'Cash to Coin',
-                        details: `$${amount.toFixed(2)} -> ${amount.toFixed(2)} COIN`,
-                        amountString: `+${amount.toFixed(2)} COIN`,
-                        date: Timestamp.now()
-                    })
-                });
-                showToast('Conversion successful!');
-                document.getElementById('cash-to-coin-amount').value = '';
-            } catch(error) {
-                showToast(`Error: ${error.message}`, true);
-            }
-        });
+        if(cashToCoinForm) {
+            cashToCoinForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('cash-to-coin-amount').value);
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Please enter a valid amount.', true); return;
+                }
+                if (userData.cashBalance < amount) {
+                    showToast('Insufficient cash balance.', true); return;
+                }
+                const userRef = doc(db, 'users', currentUser.uid);
+                try {
+                    await updateDoc(userRef, {
+                        cashBalance: userData.cashBalance - amount,
+                        balance: userData.balance + amount,
+                        transactions: arrayUnion({
+                            type: 'conversion',
+                            title: 'Cash to Coin',
+                            details: `$${amount.toFixed(2)} -> ${amount.toFixed(2)} COIN`,
+                            amountString: `+${amount.toFixed(2)} COIN`,
+                            date: Timestamp.now()
+                        })
+                    });
+                    showToast('Conversion successful!');
+                    document.getElementById('cash-to-coin-amount').value = '';
+                } catch(error) {
+                    showToast(`Error: ${error.message}`, true);
+                }
+            });
+        }
         
-        coinToCashForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const amount = parseFloat(document.getElementById('coin-to-cash-amount').value);
-            if (isNaN(amount) || amount <= 0) {
-                showToast('Please enter a valid amount.', true); return;
-            }
-            if (userData.balance < amount) {
-                showToast('Insufficient coin balance.', true); return;
-            }
-            const userRef = doc(db, 'users', currentUser.uid);
-            try {
-                await updateDoc(userRef, {
-                    balance: userData.balance - amount,
-                    cashBalance: userData.cashBalance + amount,
-                    transactions: arrayUnion({
-                        type: 'conversion',
-                        title: 'Coin to Cash',
-                        details: `${amount.toFixed(2)} COIN -> $${amount.toFixed(2)}`,
-                        amountString: `+$${amount.toFixed(2)}`,
-                        date: Timestamp.now()
-                    })
-                });
-                showToast('Conversion successful!');
-                 document.getElementById('coin-to-cash-amount').value = '';
-            } catch(error) {
-                showToast(`Error: ${error.message}`, true);
-            }
-        });
-
+        if(coinToCashForm) {
+            coinToCashForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const amount = parseFloat(document.getElementById('coin-to-cash-amount').value);
+                if (isNaN(amount) || amount <= 0) {
+                    showToast('Please enter a valid amount.', true); return;
+                }
+                if (userData.balance < amount) {
+                    showToast('Insufficient coin balance.', true); return;
+                }
+                const userRef = doc(db, 'users', currentUser.uid);
+                try {
+                    await updateDoc(userRef, {
+                        balance: userData.balance - amount,
+                        cashBalance: userData.cashBalance + amount,
+                        transactions: arrayUnion({
+                            type: 'conversion',
+                            title: 'Coin to Cash',
+                            details: `${amount.toFixed(2)} COIN -> $${amount.toFixed(2)}`,
+                            amountString: `+$${amount.toFixed(2)}`,
+                            date: Timestamp.now()
+                        })
+                    });
+                    showToast('Conversion successful!');
+                     document.getElementById('coin-to-cash-amount').value = '';
+                } catch(error) {
+                    showToast(`Error: ${error.message}`, true);
+                }
+            });
+        }
+        
         lucide.createIcons();
     </script>
 </body>
