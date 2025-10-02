@@ -5,12 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spay Digital Wallet</title>
     
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
     <style>
+        :root {
+            --primary-color: #6a5af9;
+            --secondary-color: #d15bff;
+            --background-dark: #1a1a2e;
+            --background-light: #2a2a4e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0c0;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+            --card-background: rgba(42, 42, 78, 0.8);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -18,10 +34,10 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Poppins', sans-serif;
+            background: var(--background-dark);
             min-height: 100vh;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .container {
@@ -32,7 +48,7 @@
 
         /* Login Screen */
         .login-screen {
-            background: rgba(255, 255, 255, 0.95);
+            background: var(--card-background);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 40px 30px;
@@ -44,7 +60,7 @@
             text-align: center;
             font-size: 32px;
             font-weight: bold;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 30px;
@@ -57,22 +73,24 @@
         .input-group label {
             display: block;
             margin-bottom: 5px;
-            color: #666;
+            color: var(--text-secondary);
             font-size: 14px;
         }
 
         .input-group input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e0e0e0;
+            background: var(--background-light);
+            border: 2px solid transparent;
             border-radius: 10px;
+            color: var(--text-primary);
             font-size: 16px;
             transition: all 0.3s;
         }
 
         .input-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary-color);
         }
 
         .btn {
@@ -88,34 +106,27 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 20px rgba(106, 90, 249, 0.4);
         }
 
         .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
+            background: var(--background-light);
+            color: var(--text-primary);
         }
 
         /* Main App */
         .main-app {
             display: none;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
 
         /* Header */
         .app-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             padding: 20px;
             display: flex;
             justify-content: space-between;
@@ -131,25 +142,25 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
+            background: var(--card-background);
             border: none;
-            color: white;
+            color: var(--text-primary);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.3s;
-            font-size: 20px;
+            font-size: 24px;
         }
 
         .icon-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: var(--primary-color);
             transform: scale(1.1);
         }
 
         /* Balance Card */
         .balance-card {
-            background: white;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             margin: 20px;
             padding: 25px;
             border-radius: 15px;
@@ -157,7 +168,7 @@
         }
 
         .balance-label {
-            color: #666;
+            color: var(--text-primary);
             font-size: 14px;
             margin-bottom: 5px;
         }
@@ -165,7 +176,7 @@
         .balance-amount {
             font-size: 36px;
             font-weight: bold;
-            color: #333;
+            color: var(--text-primary);
             margin-bottom: 10px;
         }
 
@@ -199,21 +210,13 @@
             flex-direction: column;
             align-items: center;
             gap: 5px;
+            background: var(--card-background);
+            color: var(--text-primary);
         }
 
-        .send-btn {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-
-        .receive-btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-
-        .business-btn {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-            color: white;
+        .action-btn:hover {
+            transform: translateY(-5px);
+            background: var(--primary-color);
         }
 
         /* Modal */
@@ -231,7 +234,7 @@
         }
 
         .modal-content {
-            background: white;
+            background: var(--background-light);
             width: 90%;
             max-width: 400px;
             border-radius: 20px;
@@ -255,7 +258,7 @@
             font-size: 24px;
             font-weight: bold;
             margin-bottom: 20px;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .close-btn {
@@ -263,7 +266,7 @@
             top: 15px;
             right: 15px;
             font-size: 28px;
-            color: #999;
+            color: var(--text-secondary);
             cursor: pointer;
             background: none;
             border: none;
@@ -278,18 +281,18 @@
             display: flex;
             justify-content: space-between;
             padding: 15px;
-            background: #f8f8f8;
+            background: var(--background-dark);
             border-radius: 10px;
             margin-bottom: 10px;
         }
 
         .profile-label {
-            color: #666;
+            color: var(--text-secondary);
         }
 
         .profile-value {
             font-weight: 600;
-            color: #333;
+            color: var(--text-primary);
         }
 
         /* Transaction List */
@@ -300,7 +303,7 @@
         }
 
         .transaction-item {
-            background: #f8f8f8;
+            background: var(--background-dark);
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 10px;
@@ -309,7 +312,7 @@
         }
 
         .transaction-item:hover {
-            background: #e8e8e8;
+            background: var(--primary-color);
             transform: translateX(5px);
         }
 
@@ -321,7 +324,7 @@
 
         .transaction-type {
             font-weight: 600;
-            color: #333;
+            color: var(--text-primary);
         }
 
         .transaction-amount {
@@ -329,15 +332,15 @@
         }
 
         .transaction-amount.positive {
-            color: #4caf50;
+            color: var(--success-color);
         }
 
         .transaction-amount.negative {
-            color: #f44336;
+            color: var(--error-color);
         }
 
         .transaction-date {
-            color: #999;
+            color: var(--text-secondary);
             font-size: 12px;
         }
 
@@ -355,14 +358,16 @@
         .conversion-input input {
             flex: 1;
             padding: 12px;
-            border: 2px solid #e0e0e0;
+            background: var(--background-dark);
+            border: 2px solid transparent;
             border-radius: 10px;
             font-size: 16px;
+            color: var(--text-primary);
         }
 
         .conversion-rate {
             text-align: center;
-            color: #666;
+            color: var(--text-secondary);
             margin: 15px 0;
         }
 
@@ -376,7 +381,8 @@
         .toggle-btn {
             padding: 10px 20px;
             border: none;
-            background: #f0f0f0;
+            background: var(--background-light);
+            color: var(--text-primary);
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -390,18 +396,18 @@
         }
 
         .toggle-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             color: white;
         }
 
         .error {
-            color: #f44336;
+            color: var(--error-color);
             text-align: center;
             margin-top: 10px;
         }
 
         .success {
-            color: #4caf50;
+            color: var(--success-color);
             text-align: center;
             margin-top: 10px;
         }
@@ -409,7 +415,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Login Screen -->
         <div class="login-screen" id="loginScreen">
             <h1 class="app-title">Spay Wallet</h1>
             
@@ -441,19 +446,16 @@
             </div>
         </div>
 
-        <!-- Main App -->
         <div class="main-app" id="mainApp">
-            <!-- Header -->
             <div class="app-header">
                 <h2>Spay Wallet</h2>
                 <div class="header-icons">
-                    <button class="icon-btn" onclick="openNotifications()" title="Conversions">💱</button>
-                    <button class="icon-btn" onclick="openTransactions()" title="Transactions">📊</button>
-                    <button class="icon-btn" onclick="openProfile()" title="Profile">👤</button>
+                    <button class="icon-btn" onclick="openNotifications()" title="Conversions"><i class="material-icons">currency_exchange</i></button>
+                    <button class="icon-btn" onclick="openTransactions()" title="Transactions"><i class="material-icons">history</i></button>
+                    <button class="icon-btn" onclick="openProfile()" title="Profile"><i class="material-icons">person</i></button>
                 </div>
             </div>
 
-            <!-- Balance Card -->
             <div class="balance-card">
                 <div class="balance-label">Total Balance</div>
                 <div class="balance-amount" id="totalBalance">$0.00</div>
@@ -465,32 +467,29 @@
                     </div>
                     <div class="balance-item">
                         <div class="balance-label">Coin Balance</div>
-                        <div style="font-size: 20px; font-weight: bold;">🪙 <span id="coinBalance">0</span></div>
+                        <div style="font-size: 20px; font-weight: bold;"><i class="material-icons">toll</i> <span id="coinBalance">0</span></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Action Buttons -->
             <div class="action-buttons">
-                <button class="action-btn send-btn" onclick="openSend()">
-                    <span style="font-size: 24px;">📤</span>
+                <button class="action-btn" onclick="openSend()">
+                    <i class="material-icons">arrow_upward</i>
                     <span>Send</span>
                 </button>
-                <button class="action-btn receive-btn" onclick="openReceive()">
-                    <span style="font-size: 24px;">📥</span>
+                <button class="action-btn" onclick="openReceive()">
+                    <i class="material-icons">arrow_downward</i>
                     <span>Receive</span>
                 </button>
             </div>
             
             <div style="margin: 0 20px;">
-                <button class="btn business-btn" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);" onclick="openBusinessPayment()">
-                    <span style="font-size: 20px;">💼</span> Business Payment
+                <button class="btn btn-primary" onclick="openBusinessPayment()">
+                    <i class="material-icons">business</i> Business Payment
                 </button>
             </div>
         </div>
 
-        <!-- Modals -->
-        <!-- Profile Modal -->
         <div class="modal" id="profileModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('profileModal')">&times;</button>
@@ -515,11 +514,10 @@
                     </div>
                 </div>
                 
-                <button class="btn btn-secondary" style="background: #f44336; color: white;" onclick="logout()">Logout</button>
+                <button class="btn btn-secondary" style="background: var(--error-color); color: white;" onclick="logout()">Logout</button>
             </div>
         </div>
 
-        <!-- Send Modal -->
         <div class="modal" id="sendModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('sendModal')">&times;</button>
@@ -540,14 +538,13 @@
             </div>
         </div>
 
-        <!-- Receive Modal -->
         <div class="modal" id="receiveModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('receiveModal')">&times;</button>
                 <div class="modal-header">Receive Money</div>
                 
                 <div style="text-align: center; padding: 20px;">
-                    <p style="color: #666; margin-bottom: 20px;">Share your email or phone to receive money</p>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Share your email or phone to receive money</p>
                     
                     <div class="profile-item">
                         <span class="profile-label">Email</span>
@@ -567,31 +564,26 @@
             </div>
         </div>
 
-        <!-- Transactions Modal -->
         <div class="modal" id="transactionsModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('transactionsModal')">&times;</button>
                 <div class="modal-header">Transaction History</div>
                 
                 <div class="transaction-list" id="transactionList">
-                    <!-- Transactions will be loaded here -->
-                </div>
+                    </div>
             </div>
         </div>
 
-        <!-- Transaction Detail Modal -->
         <div class="modal" id="transactionDetailModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('transactionDetailModal')">&times;</button>
                 <div class="modal-header">Transaction Details</div>
                 
                 <div id="transactionDetails">
-                    <!-- Details will be loaded here -->
-                </div>
+                    </div>
             </div>
         </div>
 
-        <!-- Notifications/Conversion Modal -->
         <div class="modal" id="notificationsModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('notificationsModal')">&times;</button>
@@ -610,7 +602,7 @@
                     </div>
                     
                     <div style="text-align: center; margin-bottom: 15px;">
-                        <span id="conversionResult" style="font-size: 18px; color: #667eea;">-</span>
+                        <span id="conversionResult" style="font-size: 18px; color: var(--primary-color);">-</span>
                     </div>
                     
                     <button class="btn btn-primary" onclick="performConversion()">Convert</button>
@@ -619,7 +611,6 @@
             </div>
         </div>
 
-        <!-- Business Payment Modal -->
         <div class="modal" id="businessModal">
             <div class="modal-content">
                 <button class="close-btn" onclick="closeModal('businessModal')">&times;</button>
@@ -649,13 +640,13 @@
     <script>
         // Firebase Configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyCJ5kTNtHVBmAySNxskC-sejx2h07KxyvI",
-            authDomain: "spay-191ff.firebaseapp.com",
-            projectId: "spay-191ff",
-            storageBucket: "spay-191ff.appspot.com",
-            messagingSenderId: "237078619197",
-            appId: "1:237078619197:web:77831f473393c8d9d87654",
-            measurementId: "G-M7PM8E57ZB"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
+            measurementId: "YOUR_MEASUREMENT_ID"
         };
 
         // Initialize Firebase
@@ -901,7 +892,7 @@
             const transactions = userData.transactions || [];
             
             if (transactions.length === 0) {
-                transactionList.innerHTML = '<p style="text-align: center; color: #999;">No transactions yet</p>';
+                transactionList.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No transactions yet</p>';
                 return;
             }
             
@@ -1015,7 +1006,7 @@
             
             detailHTML += `<div class="profile-item">
                 <span class="profile-label">Status</span>
-                <span class="profile-value" style="color: #4caf50;">Completed</span>
+                <span class="profile-value" style="color: var(--success-color);">Completed</span>
             </div>`;
             
             detailHTML += '</div>';
